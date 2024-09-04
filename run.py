@@ -1,13 +1,19 @@
 import zipfile
-import os
 import hashlib
-import requests
 import sys
 import tkinter as tk
 from tkinter import filedialog
 import winreg
 from tqdm import tqdm
 import shutil
+import requests
+import json
+from tkinter import ttk
+from tkinter import messagebox
+import os
+import threading
+import pyperclip
+from urllib.parse import unquote
 
 # 初始化变量
 url = 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/data.json'
@@ -141,7 +147,7 @@ def download_file_with_progress(url, save_path):
                 file.write(chunk)
                 progress_bar.update(len(chunk))  # 更新进度条
 
-        print(f"INFO:文件已下载并保存到: {save_path}")
+        print(f"INFO:文件已下载并安装")
     except requests.exceptions.RequestException as e:
         print(f"ERROR:下载文件时出错: {e}")
 
@@ -194,6 +200,8 @@ print("2.【一键】从本地文件安装TSM")
 print("4.【手动】从github下载安装最新版TSM核心组件/更新TSM")
 print("5.【手动】安装汉化组件/更新")
 print("3.【一键】一键卸载TSM")
+print("6.【社区】安装社区插件功能")
+print("7.【社区】复制社区提供的运行代码")
 choice = input("请输入选项数字: ")
 if choice == "1":
     print("INFO:开始下载文件")
@@ -369,6 +377,271 @@ elif choice == "5":
     unzip_file(create_full_path(base_path, file_name),game_path)
     print("INFO:解压完毕，请在steam中启动游戏，如果启动后崩溃请双击运行外挂目录下VC进行安装运行环境")
     input()
+
+elif choice == "6":
+
+    print("WARN:当前使用的是社区功能,请注意这些脚本以及信息来源于全球玩家贡献，无法确保安全和稳定性，请自行斟酌！")
+    def fetch_data_from_url(url):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # 确保请求成功
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Failed to fetch data from URL: {e}")
+            return None
+
+
+    def fetch_data_from_local(file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                return json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            messagebox.showerror("Error", f"Failed to fetch data from local file: {e}")
+            return None
+
+
+    def download_file_with_progress(url, save_path, progress_bar, root, install_button):
+        try:
+            response = requests.get(url, stream=True, allow_redirects=True)
+            response.raise_for_status()
+
+            content_type = response.headers.get('Content-Type')
+            if 'text/html' in content_type:
+                messagebox.showerror("Error", "请求返回了HTML内容，可能URL无效或需要权限。")
+                return
+
+            total_size = int(response.headers.get('content-length', 0))
+            progress_bar["maximum"] = total_size
+
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+            with open(save_path, 'wb') as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+                    progress_bar["value"] += len(chunk)
+                    root.update_idletasks()
+
+            messagebox.showinfo("完成", f"文件已下载并安装,请重启游戏生效。")
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"下载文件时出错: {e}")
+        finally:
+            install_button.config(state=tk.NORMAL, text="安装")
+
+
+    def install_application(down, puth, progress_bar, root, install_button):
+        progress_bar["value"] = 0
+        decoded_filename = unquote(down.split('/')[-1])  # 解码文件名中的百分号
+        save_path = os.path.join(puth, decoded_filename)
+
+        install_button.config(state=tk.DISABLED, text="正在下载...")
+
+        download_thread = threading.Thread(target=download_file_with_progress,
+                                           args=(down, save_path, progress_bar, root, install_button))
+        download_thread.start()
+
+
+    def create_interface(data):
+        root = tk.Tk()
+        root.title("动态 JSON 数据界面")
+
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+
+        window_width = int(screen_width * 0.3)
+        window_height = int(screen_height * 0.3)
+        root.geometry(f"{window_width}x{window_height}")
+
+        canvas = tk.Canvas(root)
+        scrollbar = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        row_counter = 0
+
+        for entry in data:
+            name = entry.get("name", "No Name")
+            txt = entry.get("txt", "No Description")
+            down = entry.get("down", "")
+            puth = entry.get("puth", "")
+            puth = game_path + puth
+
+            ttk.Label(scrollable_frame, text=f"名称: {name}").grid(row=row_counter, column=0, sticky=tk.W, pady=2)
+            ttk.Label(scrollable_frame, text=f"描述: {txt}").grid(row=row_counter + 1, column=0, sticky=tk.W, pady=2)
+
+            progress_bar = ttk.Progressbar(scrollable_frame, orient="horizontal", length=200, mode="determinate")
+            progress_bar.grid(row=row_counter + 4, column=0, pady=5)
+
+            install_button = ttk.Button(scrollable_frame, text="安装")
+            install_button.config(
+                command=lambda d=down, p=puth, pb=progress_bar, ib=install_button: install_application(d, p, pb, root,
+                                                                                                       ib))
+            install_button.grid(row=row_counter + 5, column=0, pady=10)
+
+            row_counter += 6
+
+        root.mainloop()
+
+
+    def main():
+        fetch_from_url = True
+
+        if fetch_from_url:
+            url = "https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/%E7%A4%BE%E5%8C%BA%E8%B5%84%E6%BA%90/datadc.json"
+            print("INFO:加载窗体控件，如果没有正常显示，请查看通知栏。")
+            print("INFO:正在从云端拉取数据,请确保网络通畅....")
+            data = fetch_data_from_url(url)
+        else:
+            local_file = "datadc.json"
+            data = fetch_data_from_local(local_file)
+
+        if data:
+            create_interface(data)
+
+
+    if __name__ == "__main__":
+        main()
+
+elif choice == "7":
+    print("INFO:加载窗体控件，如果没有正常显示，请查看通知栏。")
+    messagebox.showinfo("温馨提示", "当前使用的是社区功能,请注意这些脚本以及信息来源于全球玩家贡献，无法确保安全和稳定性，请自行斟酌！")
+    messagebox.showinfo("使用帮助", "此功能适用于TSM的代码运行功能，复制后请前往“TSM-自定义命令”进行执行")
+    def fetch_data_from_url(url):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # 确保请求成功
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Failed to fetch data from URL: {e}")
+            return None
+
+
+    def fetch_data_from_local(file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                return json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            messagebox.showerror("Error", f"Failed to fetch data from local file: {e}")
+            return None
+
+
+    def download_file_with_progress(url, save_path, progress_bar, root, install_button):
+        try:
+            response = requests.get(url, stream=True, allow_redirects=True)
+            response.raise_for_status()
+
+            content_type = response.headers.get('Content-Type')
+            if 'text/html' in content_type:
+                messagebox.showerror("Error", "请求返回了HTML内容，可能URL无效或需要权限。")
+                return
+
+            total_size = int(response.headers.get('content-length', 0))
+            progress_bar["maximum"] = total_size
+
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+            with open(save_path, 'wb') as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+                    progress_bar["value"] += len(chunk)
+                    root.update_idletasks()
+
+            messagebox.showinfo("完成", f"文件已下载并安装")
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"下载文件时出错: {e}")
+        finally:
+            install_button.config(state=tk.NORMAL, text="安装")
+
+
+    def install_application(down, puth, progress_bar, root, install_button):
+        progress_bar["value"] = 0
+        save_path = os.path.join(puth, down.split('/')[-1])
+
+        install_button.config(state=tk.DISABLED, text="正在下载...")
+
+        download_thread = threading.Thread(target=download_file_with_progress,
+                                           args=(down, save_path, progress_bar, root, install_button))
+        download_thread.start()
+
+
+    def copy_to_clipboard(code):
+        pyperclip.copy(code)
+        messagebox.showinfo("复制成功", "代码已复制到剪切板")
+
+
+    def create_interface(data):
+        root = tk.Tk()
+        root.title("动态 JSON 数据界面")
+
+        # 获取屏幕尺寸
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+
+        # 设置窗口大小为屏幕的30%
+        window_width = int(screen_width * 0.3)
+        window_height = int(screen_height * 0.3)
+        root.geometry(f"{window_width}x{window_height}")
+
+        # 创建Canvas和Scrollbar
+        canvas = tk.Canvas(root)
+        scrollbar = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        row_counter = 0  # 用于动态排列控件
+
+        for entry in data:
+            name = entry.get("name", "No Title")
+            txt = entry.get("txt", "No Description")
+            code = entry.get("code", "")
+
+            ttk.Label(scrollable_frame, text=f"标题: {name}").grid(row=row_counter, column=0, sticky=tk.W, pady=2)
+            ttk.Label(scrollable_frame, text=f"描述: {txt}").grid(row=row_counter + 1, column=0, sticky=tk.W,
+                                                                  pady=2)
+
+            # 添加“复制代码”按钮
+            copy_button = ttk.Button(scrollable_frame, text="复制代码", command=lambda c=code: copy_to_clipboard(c))
+            copy_button.grid(row=row_counter + 2, column=0, pady=5)
+
+            row_counter += 3  # 每个条目占用3行
+
+        root.mainloop()
+
+    fetch_from_url = True
+
+    if fetch_from_url:
+        url = "https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/%E7%A4%BE%E5%8C%BA%E8%B5%84%E6%BA%90/datacode.json"
+        print("INFO:正在从云端拉取数据,请确保网络通畅....")
+        data = fetch_data_from_url(url)
+    else:
+        local_file = "datacode.json"
+        data = fetch_data_from_local(local_file)
+
+    if data:
+        create_interface(data)
 else:
     print("ERROR:输入有误")
 
