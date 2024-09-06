@@ -1,3 +1,4 @@
+#——————运行库——————
 import zipfile
 import hashlib
 import sys
@@ -15,11 +16,63 @@ import threading
 import pyperclip
 from urllib.parse import unquote
 
+#——————方法库——————
 # 初始化变量
 url = 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/data.json'
-base_path = "./"  # 文件路径
+base_path = None  # 文件路径
 game_path = None # 游戏路径
-fileurl = None
+fileurl = None  #云端链接
+filepath = None #临时存储文件路径
+
+# 打开Windows资源管理器
+def open_directory_in_explorer(directory_path):
+    try:
+        os.startfile(directory_path)
+        print('启动成功')
+    except Exception as e:
+        print(f"无法打开目录 {directory_path}: {e}")
+#更新json方法
+def update_config_value(key, value, file_path="config.json"):
+    """
+    更新 JSON 配置文件中指定键的值。
+    如果文件不存在，自动创建默认配置文件并更新指定值。
+    """
+    # 读取现有配置
+    with open(file_path, 'r', encoding='utf-8') as file:
+        config = json.load(file)
+
+    # 更新指定键的值
+    config[key] = value
+
+    # 写回文件
+    with open(file_path, 'w', encoding='utf-8') as file:
+        json.dump(config, file, indent=4, ensure_ascii=False)
+# 加载json文件
+def load_config(file_path="config.json"):
+    """
+    读取 JSON 配置文件的内容。如果文件不存在，则返回 None。
+    """
+    if os.path.exists(file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    return None
+
+# 创建json文件
+def create_default_config(file_path="config.json", default_config=None):
+    """
+    创建一个默认的 JSON 配置文件，如果文件不存在。
+    可以传递一个默认配置的字典，如果没有提供，则使用预定义的默认配置。
+    """
+    if default_config is None:
+        default_config = {
+            "first": True,
+            "game_path": None,
+            "data_path": None
+        }
+
+    if not os.path.exists(file_path):
+        with open(file_path, 'w', encoding='utf-8') as file:
+            json.dump(default_config, file, indent=4, ensure_ascii=False)
 
 def get_game_install_location():
 
@@ -47,7 +100,7 @@ def get_game_install_location():
     return None
 
 
-# ------解压文件的方法------
+# 解压文件的方法
 def unzip_file(zip_path, extract_to):
     # 检查文件是否为zip格式
     if zipfile.is_zipfile(zip_path):
@@ -57,7 +110,7 @@ def unzip_file(zip_path, extract_to):
     else:
         print("ERROR:指定的文件不是有效的ZIP文件")
 
-#------校验MD5方法------
+#校验MD5方法
 def calculate_md5(file_path, buffer_size=8192):
     md5_hash = hashlib.md5()
     with open(file_path, "rb") as f:
@@ -74,13 +127,13 @@ def verify_md5(file_path, expected_md5):
         if file_md5.lower() == expected_md5.lower():
             return True
         else:
-            print(f"WARN:文件信息鉴权失败: {file_path}")
-            print("INFO:可能是您下载了错误的版本或者下载过程中文件出现损坏。请重新下载上行路径输出的末尾的文件替换到此目录。如果是新版本更新可能没有及时更新云端文件信息所致，您可以按任意键跳过，但是这将可能导致TSM不在预期内运行。")
+            print(f"WARN:文件信息校验码不匹配: {file_path}")
+            print("提示：可能是您下载了错误的版本或者下载过程中文件出现损坏。请重新下载上行路径输出的末尾的文件替换到此目录。如果是新版本更新可能没有及时更新云端文件信息所致，您可以按任意键跳过，但是这将可能导致TSM不在预期内运行。")
             input()
             return True
     except FileNotFoundError:
-        print(f"WARN:文件缺失: {file_path}")
-        print("INFO:请下载上行路径输出的末尾的文件到此目录")
+        print(f"ERROR:文件缺失: {file_path}")
+        print("提示：在最新版本中，此错误不应当出现，请联系作者排查。")
         input()
         sys.exit(1)  # 终止程序运行并返回状态码1
 
@@ -147,7 +200,7 @@ def download_file_with_progress(url, save_path):
                 file.write(chunk)
                 progress_bar.update(len(chunk))  # 更新进度条
 
-        print(f"INFO:文件已下载并安装")
+        print(f"INFO:文件已下载到临时存储目录")
     except requests.exceptions.RequestException as e:
         print(f"ERROR:下载文件时出错: {e}")
 
@@ -188,12 +241,57 @@ def delete_files_and_directories(target_directory):
                 print(f"ERROR:目录未找到: {dir_path}")
         except Exception as e:
             print(f"ERROR:删除目录时出错: {dir_path}, 错误: {e}")
+# 删除指定目录下的文件
+def delete_all_files_in_directory(directory_path):
+    # 检查指定路径是否为目录
+    if os.path.isdir(directory_path):
+        for filename in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, filename)
+            try:
+                # 如果是文件，则删除
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                # 如果是目录，则删除整个目录
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"删除 {file_path} 时出错: {e}")
+    else:
+        print(f"{directory_path} 不是一个有效的目录")
 
-
-game_path=get_game_install_location()
-if game_path == None:
-    print("WARN:获取游戏路径失败，需要手动选择")
-    game_path= select_directory("INFO:请选择游戏根目录")
+#——————程序运行入口——————
+# 环境初始化
+config = load_config()
+if config is None:
+    create_default_config()
+    config = load_config()
+    print("INFO:首次运行创建配置文件")
+if load_config()['first']:
+    print("INFO:执行初始化设置向导")
+    print("INFO:设置游戏目录(1/2)")
+    game_path=get_game_install_location()
+    print("INFO:您的游戏安装目录为：",game_path,'\n 是否正确,如果不正确输入n进行手动选择游戏目录,反则按任意键继续...')
+    xuanze = input()
+    if xuanze == 'n':
+        game_path=None
+    if game_path == None:
+        print("WARN:获取游戏路径失败，需要手动选择")
+        game_path= select_directory("INFO:请选择游戏根目录")
+    update_config_value('game_path', game_path)
+    print("INFO:设置下载的临时文件存储位置(2/2)")
+    filepath=os.getcwd()
+    print("提示：默认为运行目录,当前目录为:",filepath,"\n 如果需要进行更改请输入n,反则输入任意键继续...")
+    if input() == 'n':
+        filepath = select_directory("INFO:请选择临时文件存储目录")
+    update_config_value('data_path', filepath)
+    print('INFO:设置向导完毕。如有设置错误可以在菜单种重新设置')
+    update_config_value('first', False)
+# 设置变量值
+print('INFO:程序初始化')
+jsondata = load_config()
+filepath = jsondata['data_path']
+game_path = jsondata['game_path']
+base_path = filepath
 print("请选择功能(输入序号)")
 print("1.【一键】一键安装TSM")
 print("2.【一键】从本地文件安装TSM")
@@ -202,24 +300,25 @@ print("5.【手动】安装汉化组件/更新")
 print("3.【一键】一键卸载TSM")
 print("6.【社区】安装社区插件功能")
 print("7.【社区】复制社区提供的运行代码")
+print("8.【程序】设置")
 choice = input("请输入选项数字: ")
 if choice == "1":
     print("INFO:开始下载文件")
     # 下载TSM.zip
     fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM.zip"
-    save_path = os.path.join(os.getcwd(), "TSM.zip")
+    save_path = os.path.join(filepath, "TSM.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载sml-pc.zip
     fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/sml-pc.zip"
-    save_path = os.path.join(os.getcwd(), "sml-pc.zip")
+    save_path = os.path.join(filepath, "sml-pc.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载TSM_font.zip
     fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM_font.zip"
-    save_path = os.path.join(os.getcwd(), "TSM_font.zip")
+    save_path = os.path.join(filepath, "TSM_font.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载TSMmap-ZH_CN.zip
     fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSMmap-ZH_CN.zip"
-    save_path = os.path.join(os.getcwd(), "TSMmap-ZH_CN.zip")
+    save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
     download_file_with_progress(fileurl, save_path)
     print("INFO:开始校验文件信息")
     # 获取JSON数据
@@ -239,7 +338,6 @@ if choice == "1":
                     sys.exit(1)  # 如果MD5不匹配，终止程序
             else:
                 print("ERROR:JSON数据中缺少文件名或MD5值，跳过该项。")
-    # 其他后续代码（如果文件缺失或MD5不匹配，此处代码不会执行）
     print("INFO:文件信息校验完毕。")
 
     print("INFO:开始解压文件")
@@ -263,29 +361,9 @@ if choice == "1":
     print("INFO:解压完毕，请在steam中启动游戏，如果启动后崩溃请双击运行外挂目录下VC进行安装运行环境")
     input()
 elif choice == "2":
+    print('WARN:本地安装将不在进行文件校验，无法保证文件完好无损以及是否为官方版本，请自行斟酌！')
     print("INFO:请选择外挂文件下载的目录")
     base_path=select_directory("请选择外挂文件下载的目录")
-    print("INFO:开始校验文件信息")
-    # 获取JSON数据
-    json_data = fetch_json_from_url(url)
-
-    # 如果成功获取到JSON数据，则进行文件校验
-    if json_data:
-        for item in json_data:
-            filename = item.get("filename")
-            expected_md5 = item.get("md5")
-
-            if filename and expected_md5:
-                file_path = os.path.join(base_path, filename)  # 拼接基础路径和文件名
-                if verify_md5(file_path, expected_md5):
-                    None
-                else:
-                    sys.exit(1)  # 如果MD5不匹配，终止程序
-            else:
-                print("ERROR:JSON数据中缺少文件名或MD5值，跳过该项。")
-    # 其他后续代码（如果文件缺失或MD5不匹配，此处代码不会执行）
-    print("INFO:文件信息校验完毕。")
-
     print("INFO:开始解压文件")
     # 解压sml-pc.zip
     file_name = 'sml-pc.zip'  # 替换为你的文件名
@@ -314,11 +392,11 @@ elif choice == "4":
     print("WARN:由于官方不提供校验码。下载后的文件不会进行文件鉴权，可能存在下载后文件损坏风险。")
     # 下载TSM.zip
     fileurl = "https://mirror.ghproxy.com/https://github.com/XeTrinityz/ThatSkyMod/releases/latest/download/TSM.zip"
-    save_path = os.path.join(os.getcwd(), "TSM.zip")
+    save_path = os.path.join(filepath, "TSM.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载sml-pc.zip
     fileurl = "https://mirror.ghproxy.com/https://github.com/lukas0x1/sml-pc/releases/latest/download/sml-pc.zip"
-    save_path = os.path.join(os.getcwd(), "sml-pc.zip")
+    save_path = os.path.join(filepath, "sml-pc.zip")
     download_file_with_progress(fileurl, save_path)
     print("INFO:文件下载完毕")
     print("INFO:开始解压文件")
@@ -338,11 +416,11 @@ elif choice == "5":
     print("INFO:开始下载")
     # 下载TSM_font.zip
     fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM_font.zip"
-    save_path = os.path.join(os.getcwd(), "TSM_font.zip")
+    save_path = os.path.join(filepath, "TSM_font.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载TSMmap-ZH_CN.zip
     fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSMmap-ZH_CN.zip"
-    save_path = os.path.join(os.getcwd(), "TSMmap-ZH_CN.zip")
+    save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
     download_file_with_progress(fileurl, save_path)
     print("INFO:文件下载完毕")
     print("INFO:开始校验文件信息")
@@ -364,7 +442,6 @@ elif choice == "5":
                     sys.exit(1)  # 如果MD5不匹配，终止程序
             else:
                 print("ERROR:JSON数据中缺少文件名或MD5值，跳过该项。")
-    # 其他后续代码（如果文件缺失或MD5不匹配，此处代码不会执行）
     print("INFO:文件信息校验完毕。")
     print("INFO:开始解压文件")
     # 解压TSM_font.zip
@@ -642,8 +719,32 @@ elif choice == "7":
 
     if data:
         create_interface(data)
+
+elif choice == "8":
+    print('输入对应功能的前面序号')
+    print('1. 清除临时下载文件')
+    print('3. 查看当前设置项')
+    print('2. 重新设置目录相关')
+    xuanze = input()
+    if xuanze == '1':
+        delete_all_files_in_directory(filepath)
+        print('删除完毕')
+    elif xuanze == '3':
+        print('游戏目录',config['game_path'],'\n 下载临时文件存储目录',config['data_path'])
+        print('输入1打开“游戏目录”,输入2打开“下载临时文件存储目录”,输入3打开全部.输入其它键退出')
+        xuanze = input()
+        if xuanze == '1':
+            open_directory_in_explorer(config['game_path'])
+        elif xuanze == '2':
+            open_directory_in_explorer(config['data_path'])
+        elif xuanze == '3':
+            open_directory_in_explorer(config['game_path'])
+            open_directory_in_explorer(config['data_path'])
+    elif xuanze == '2':
+        update_config_value('first', True)
+        print('重启程序进入设置向导')
 else:
     print("ERROR:输入有误")
 
-print("INFO:按任意按键退出...")
+print("WARN:程序运行结束,按任意按键退出...")
 input()
