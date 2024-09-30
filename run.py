@@ -15,6 +15,7 @@ import os
 import threading
 import pyperclip
 from urllib.parse import unquote
+import subprocess
 
 #——————方法库——————
 # 初始化变量
@@ -23,6 +24,12 @@ base_path = None  # 文件路径
 game_path = None # 游戏路径
 fileurl = None  #云端链接
 filepath = None #临时存储文件路径
+#---定义下载变量----
+down_1 = None
+down_2 = None
+down_3 = None
+down_4 = None
+down_5 = None
 
 # 打开Windows资源管理器
 def open_directory_in_explorer(directory_path):
@@ -67,7 +74,8 @@ def create_default_config(file_path="config.json", default_config=None):
         default_config = {
             "first": True,
             "game_path": None,
-            "data_path": None
+            "data_path": None,
+            "Downloadsource": None
         }
 
     if not os.path.exists(file_path):
@@ -268,22 +276,33 @@ if config is None:
     print("INFO:首次运行创建配置文件")
 if load_config()['first']:
     print("INFO:执行初始化设置向导")
-    print("INFO:设置游戏目录(1/2)")
+    print("INFO:设置游戏目录(1/3)")
     game_path=get_game_install_location()
-    print("INFO:您的游戏安装目录为：",game_path,'\n 是否正确,如果不正确输入n进行手动选择游戏目录,反则按任意键继续...')
-    xuanze = input()
-    if xuanze == 'n':
-        game_path=None
     if game_path == None:
         print("WARN:获取游戏路径失败，需要手动选择")
         game_path= select_directory("INFO:请选择游戏根目录")
+    else:
+        print("INFO:您的游戏安装目录为：", game_path,
+              '\n 是否正确,如果不正确输入n进行手动选择游戏目录,反则按任意键继续...')
+        xuanze = input()
+        if xuanze == 'n':
+            game_path = select_directory("INFO:请选择游戏根目录")
     update_config_value('game_path', game_path)
-    print("INFO:设置下载的临时文件存储位置(2/2)")
+    print("INFO:设置下载的临时文件存储位置(2/3)")
     filepath=os.getcwd()
     print("提示：默认为运行目录,当前目录为:",filepath,"\n 如果需要进行更改请输入n,反则输入任意键继续...")
     if input() == 'n':
         filepath = select_directory("INFO:请选择临时文件存储目录")
     update_config_value('data_path', filepath)
+    print("INFO:设置下载源网络(3/3)默认为gitee")
+    print("1. gitee(中国大陆地区 默认)\t 2.cloudflare全球网络(中国大陆以外(港澳台))")
+    xuanze = input()
+    if xuanze == '1':
+        update_config_value('Downloadsource', 'gitee')
+    elif xuanze == '2':
+        update_config_value('Downloadsource', 'cloudflare')
+    else:
+        update_config_value('Downloadsource', 'gitee')
     print('INFO:设置向导完毕。如有设置错误可以在菜单种重新设置')
     update_config_value('first', False)
 # 设置变量值
@@ -292,32 +311,52 @@ jsondata = load_config()
 filepath = jsondata['data_path']
 game_path = jsondata['game_path']
 base_path = filepath
+#--下载源设置---
+try:
+    if jsondata['Downloadsource'] == 'gitee':
+        down_1 = 'https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM.zip'
+        down_2 = 'https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/sml-pc.zip'
+        down_3 = 'https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM_font.zip'
+        down_4 = 'https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSMmap-ZH_CN.zip'
+        down_5 = 'https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/VC_redist.x64.exe'
+    elif jsondata['Downloadsource'] == 'cloudflare':
+        down_1 = 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/TSM.zip'
+        down_2 = 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/sml-pc.zip'
+        down_3 = 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/TSM_font.zip'
+        down_4 = 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/TSMmap-ZH_CN.zip'
+        down_5 = 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/VC_redist.x64.exe'
+except KeyError:
+    os.remove('config.json')
+    print("ERROR:检测到配置文件不兼容当前版本,已自动删除,请重新运行程序创建.")
+    input()
+    sys.exit(1)
 print("请选择功能(输入序号)")
-print("1.【一键】一键安装TSM")
-print("2.【一键】从本地文件安装TSM")
-print("4.【手动】从github下载安装最新版TSM核心组件/更新TSM")
-print("5.【手动】安装汉化组件/更新")
-print("3.【一键】一键卸载TSM")
-print("6.【社区】安装社区插件功能")
-print("7.【社区】复制社区提供的运行代码")
-print("8.【程序】设置")
+print("1.【安装/更新】一键安装TSM\n"
+      "2.【安装/更新】从本地文件安装TSM\n"
+      "4.【更新】从github下载安装最新版TSM核心组件/更新TSM\n"
+      "5.【安装/更新】安装汉化组件/更新\n"
+      "3.【卸载】一键卸载TSM\n"
+      "6.【社区】安装社区插件功能\n"
+      "7.【社区】复制社区提供的运行代码\n"
+      "8.【程序】设置\n"
+      "9.【安装】下载VC运行库(无法启动请使用)")
 choice = input("请输入选项数字: ")
 if choice == "1":
     print("INFO:开始下载文件")
     # 下载TSM.zip
-    fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM.zip"
+    fileurl = down_1
     save_path = os.path.join(filepath, "TSM.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载sml-pc.zip
-    fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/sml-pc.zip"
+    fileurl = down_2
     save_path = os.path.join(filepath, "sml-pc.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载TSM_font.zip
-    fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM_font.zip"
+    fileurl = down_3
     save_path = os.path.join(filepath, "TSM_font.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载TSMmap-ZH_CN.zip
-    fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSMmap-ZH_CN.zip"
+    fileurl = down_4
     save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
     download_file_with_progress(fileurl, save_path)
     print("INFO:开始校验文件信息")
@@ -415,11 +454,11 @@ elif choice == "4":
 elif choice == "5":
     print("INFO:开始下载")
     # 下载TSM_font.zip
-    fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM_font.zip"
+    fileurl = down_3
     save_path = os.path.join(filepath, "TSM_font.zip")
     download_file_with_progress(fileurl, save_path)
     # 下载TSMmap-ZH_CN.zip
-    fileurl = "https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSMmap-ZH_CN.zip"
+    fileurl = down_4
     save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
     download_file_with_progress(fileurl, save_path)
     print("INFO:文件下载完毕")
@@ -722,15 +761,15 @@ elif choice == "7":
 
 elif choice == "8":
     print('输入对应功能的前面序号')
-    print('1. 清除临时下载文件')
-    print('3. 查看当前设置项')
-    print('2. 重新设置目录相关')
+    print('1. 清除临时下载文件\n'
+          '3. 查看当前设置项\n'
+          '2. 重新设置目录相关')
     xuanze = input()
     if xuanze == '1':
         delete_all_files_in_directory(filepath)
         print('删除完毕')
     elif xuanze == '3':
-        print('游戏目录',config['game_path'],'\n 下载临时文件存储目录',config['data_path'])
+        print('游戏目录',config['game_path'],'\n 下载临时文件存储目录',config['data_path'],'\n 下载源',config['Downloadsource'])
         print('输入1打开“游戏目录”,输入2打开“下载临时文件存储目录”,输入3打开全部.输入其它键退出')
         xuanze = input()
         if xuanze == '1':
@@ -743,6 +782,12 @@ elif choice == "8":
     elif xuanze == '2':
         update_config_value('first', True)
         print('重启程序进入设置向导')
+elif choice == "9":
+    fileurl = down_5
+    save_path = os.path.join(filepath, "VC_redist.x64.exe")
+    download_file_with_progress(fileurl, save_path)
+    exe_path = os.path.join(filepath, "VC_redist.x64.exe")
+    subprocess.run(exe_path)
 else:
     print("ERROR:输入有误")
 
