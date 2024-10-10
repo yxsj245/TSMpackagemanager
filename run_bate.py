@@ -511,9 +511,50 @@ def delete_feifiles_and_directories_with_confirmation(target_directory):
                 print(Fore.RED+f"ERROR: 目录未找到: {dir_path}")
         except Exception as e:
             print(Fore.RED+f"ERROR: 删除目录时出错: {dir_path}, 错误: {e}")
+# -------自己的程序执行方法库
+# 故障排除
+def Troubleshooting(game_path):
+    print('=====')
+    print(Fore.YELLOW + '按照实际情况，选择开始游戏后的问题')
+    print(Fore.GREEN+'1.游戏启动后没有显示任何窗口\n'
+                     '2.游戏启动后出现游戏窗口但很快消失')
+    print('=====')
+    xuanze = input("请输入选项数字: ")
+    if xuanze == '1':
+        print(Fore.BLUE + "INFO:开始下载VC运行库,稍后请点击安装后重启电脑再次尝试启动游戏")
+        fileurl = down_5
+        save_path = os.path.join(filepath, "VC_redist.x64.exe")
+        download_file_with_progress(fileurl, save_path)
+        exe_path = os.path.join(filepath, "VC_redist.x64.exe")
+        subprocess.run(exe_path)
+    else:
+        try:
+            os.remove(os.path.join(game_path, 'mods','demo.dll'))
+        except FileNotFoundError:
+            print(Fore.RED + 'ERROR:文件不存在：可能您已运行过此解决方案')
+            input()
+            sys.exit(1)
+        print(Fore.BLUE + "INFO:修复完毕,正在为您启动游戏")
+        os.startfile(f"steam://rungameid/{app_id}")
+        print(Fore.BLUE + "INFO:开始监控游戏进程")
+        result = monitor_process()
+        if result:
+            print(Fore.YELLOW + 'WARN:检测到游戏进程在启动后结束,是否进行尝试自动修复？')
+            xuanze = input('输入y表示开始修复')
+            if xuanze == 'y':
+                print(Fore.BLUE + "INFO:开始下载VC运行库,稍后请点击安装后重启电脑再次尝试启动游戏")
+                fileurl = down_5
+                save_path = os.path.join(filepath, "VC_redist.x64.exe")
+                download_file_with_progress(fileurl, save_path)
+                exe_path = os.path.join(filepath, "VC_redist.x64.exe")
+                subprocess.run(exe_path)
+
+        else:
+            print(Fore.BLUE + "游戏启动成功,问题已解决")
 
 #——————程序运行入口——————
 print(Fore.BLUE + 'INFO:程序初始化')
+print(Fore.YELLOW +'程序版本3.0.1-beta')
 # 环境初始化
 # 初始配置文件json
 config = load_config()
@@ -698,15 +739,10 @@ if choice == "1":
         print(Fore.BLUE + "INFO:开始监控游戏进程")
         result = monitor_process()
         if result:
-            print(Fore.YELLOW + 'WARN:检测到游戏进程在启动后结束,是否进行尝试自动修复？')
-            xuanze = input('输入y表示开始修复')
+            print(Fore.YELLOW + 'WARN:检测到游戏进程在启动后结束,是否运行故障排除向导？')
+            xuanze = input('输入y进行故障排除')
             if xuanze == 'y':
-                print(Fore.BLUE + "INFO:开始下载VC运行库,稍后请点击安装后重启电脑再次尝试启动游戏")
-                fileurl = down_5
-                save_path = os.path.join(filepath, "VC_redist.x64.exe")
-                download_file_with_progress(fileurl, save_path)
-                exe_path = os.path.join(filepath, "VC_redist.x64.exe")
-                subprocess.run(exe_path)
+                Troubleshooting(game_path)
 
         else:
             print(Fore.BLUE + "游戏启动成功")
@@ -741,15 +777,10 @@ elif choice == "2":
         print(Fore.BLUE + "INFO:开始监控游戏进程")
         result = monitor_process()
         if result:
-            print(Fore.YELLOW + 'WARN:检测到游戏进程在启动后结束,是否进行尝试自动修复？')
-            xuanze = input('输入y表示开始修复')
+            print(Fore.YELLOW + 'WARN:检测到游戏进程在启动后结束,是否运行故障排除向导？')
+            xuanze = input('输入y进行故障排除')
             if xuanze == 'y':
-                print(Fore.BLUE + "INFO:开始下载VC运行库,稍后请点击安装后重启电脑再次尝试启动游戏")
-                fileurl = down_5
-                save_path = os.path.join(filepath, "VC_redist.x64.exe")
-                download_file_with_progress(fileurl, save_path)
-                exe_path = os.path.join(filepath, "VC_redist.x64.exe")
-                subprocess.run(exe_path)
+                Troubleshooting(game_path)
 
         else:
             print(Fore.BLUE + "游戏启动成功")
@@ -1111,7 +1142,7 @@ elif choice == "8":
     print('=====')
     print(Fore.GREEN+'1. 【文件】清除临时下载文件\n'
           '3. 【设置】查看当前设置项\n'
-          '2. 【设置】重新设置目录相关\n'
+          '2. 【设置】更改目录相关\n'
           '4. 【下载】重新检测下载线路\n'
           '5. 【下载】手动设置下载源')
     print('=====')
@@ -1135,8 +1166,17 @@ elif choice == "8":
             open_directory_in_explorer(config['game_path'])
             open_directory_in_explorer(config['data_path'])
     elif xuanze == '2':
-        update_config_value('first', True)
-        print(Fore.BLUE + 'INFO:重启程序进入设置向导')
+        print('=====')
+        print(Fore.GREEN + '1.更改游戏目录\n'
+                           '2.更改下载文件存放目录')
+        print('=====')
+        xuanze = input("请输入选项数字: ")
+        if xuanze == '1':
+            game_path = select_directory(Fore.BLUE + "INFO:请选择游戏根目录")
+            update_config_value('game_path', game_path)
+        else:
+            base_path = select_directory(Fore.BLUE + "INFO:请选择文件存放目录")
+            update_config_value('data_path', base_path)
     elif xuanze == '4':
         print(Fore.BLUE + "INFO:正在检测最优线路,预计20秒,请耐心等待..")
         fastest = download_files(urls)
@@ -1180,7 +1220,8 @@ elif choice == "9":
     subprocess.run(exe_path)
 elif choice == "10":
     print('=====')
-    print(Fore.GREEN + "1. TSM使用从萌新到大佬课程\n"
+    print(Fore.GREEN + "4. 运行故障排除"
+                       "1. TSM使用从萌新到大佬课程\n"
                        "2. 远程技术支持与1v1问题咨询\n"
                        "3. GitHub开源代码")
     print('=====')
@@ -1198,6 +1239,8 @@ elif choice == "10":
             webbrowser.open("https://m.tb.cn/h.guakVCA?tk=3qGZ3kVUM9U")
     elif xuanze == '2':
         webbrowser.open("https://m.tb.cn/h.guakVCA?tk=3qGZ3kVUM9U")
+    elif xuanze == '4':
+        Troubleshooting(game_path)
     else:
         webbrowser.open("https://github.com/yxsj245/TSMpackagemanager")
 else:
