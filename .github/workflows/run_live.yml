@@ -1,4 +1,4 @@
-name: 打包项目run_live
+name: run_live
 
 on:
   workflow_dispatch:  # 允许手动触发工作流
@@ -7,8 +7,8 @@ jobs:
   build:
     runs-on: windows-latest
     env:
-      CODE_DIR: code  # 定义 code 目录为环境变量
-      CODE_NAME: TSM包管理器3.0-x86_64  # 定义 文件名 
+      CODE_DIR: code # 定义 code 目录为环境变量
+      CODE_NAME: TSM包管理器3.0-x86_64 # 定义 文件名 
     strategy:
       fail-fast: false
       matrix:
