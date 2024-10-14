@@ -8,7 +8,7 @@ jobs:
     runs-on: windows-latest
     env:
       CODE_DIR: code # 定义 code 目录为环境变量
-      CODE_NAME: TSMpackagemanager3.0-windows_x64 # 定义 文件名 
+      CODE_NAME: TSMpackagemanager-windows_x64 # 定义 文件名 
     strategy:
       fail-fast: false
       matrix:
