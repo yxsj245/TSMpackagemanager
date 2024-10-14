@@ -1,4 +1,4 @@
-name: 打包项目(run_live)
+name: 打包项目_run_live
 
 on:
   workflow_dispatch:  # 允许手动触发工作流
