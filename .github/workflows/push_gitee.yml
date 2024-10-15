@@ -1,0 +1,32 @@
+name: push_gitee
+
+on:
+  push:
+    paths:
+      - 'code/**'  # 仅当 code 目录发生变更时触发
+    branches:
+      - main
+
+jobs:
+  upload-code:
+    runs-on: ubuntu-latest
+    steps:
+    # 检出仓库代码
+    - name: 检出仓库代码
+      uses: actions/checkout@v4
+
+    # 设置 Git 用户名和邮箱
+    - name: 设置 Gitee 用户名和邮箱
+      run: |
+        git config --global user.name '小朱'
+        git config --global user.email '10714957+xiao-zhu245@user.noreply.gitee.com'
+
+    # 推送 code 目录到 Gitee
+    - name: 推送 code 目录到 Gitee
+      env:
+        GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      run: |
+        git add code
+        git commit -m "Upload code directory"
+        git remote add gitee https://xiao-zhu245:${GITEE_TOKEN}@gitee.com/xiao-zhu245/your-gitee-repo.git
+        git push -u gitee main
