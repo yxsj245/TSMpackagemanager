@@ -2,8 +2,10 @@ name: push_gitee
 
 on:
   push:
+    paths:
+      - 'code/**'  # 仅当 code 目录发生变更时触发
     branches:
-      - main  # 监听 main 分支的推送
+      - main
 
   workflow_dispatch:  # 支持手动触发工作流
 
@@ -14,19 +16,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Set Git config
+    - name: 配置Git
       run: |
         git config --global user.name '小朱'
         git config --global user.email '10714957+xiao-zhu245@user.noreply.gitee.com'
 
-    - name: Print GITEE_TOKEN for debugging
-      run: echo "GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}"  # 打印密钥
-
-    - name: Sync Python files to Gitee
-      env:
-        GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+    - name: 同步至Gitee
       run: |
-        git remote add gitee https://xiao-zhu245:${{ secrets.GITEE_TOKEN }}@gitee.com/xiao-zhu245/your-gitee-repo.git
+        git remote add gitee https://xiao-zhu245:${{ env.GITEE_TOKEN }}@gitee.com/xiao-zhu245/TSMpackagemanager.git
         git add code/*.py  # 只添加 code 目录下的 .py 文件
         git commit -m "Sync Python files from code directory" || echo "No changes to commit"
         git push --force gitee main
