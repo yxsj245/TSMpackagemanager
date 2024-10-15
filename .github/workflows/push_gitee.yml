@@ -18,7 +18,7 @@ jobs:
       uses: actions/checkout@v4
 
     # 设置 Git 用户名和邮箱
-    - name: 设置 Gitee 用户名和邮箱
+    - name: 设置 Git 用户名和邮箱
       run: |
         git config --global user.name '小朱'
         git config --global user.email '10714957+xiao-zhu245@user.noreply.gitee.com'
@@ -29,6 +29,6 @@ jobs:
         GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
       run: |
         git add code
-        git commit -m "Upload code directory"
-        git remote add gitee https://xiao-zhu245:${GITEE_TOKEN}@gitee.com/xiao-zhu245/your-gitee-repo.git
-        git push -u gitee main
+        git commit -m "Force upload code directory" || echo "No changes to commit"
+        git remote add gitee https://xiao-zhu245:${{ secrets.GITEE_TOKEN }}@gitee.com/xiao-zhu245/your-gitee-repo.git
+        git push --force gitee main
