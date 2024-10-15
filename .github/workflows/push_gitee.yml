@@ -24,7 +24,4 @@ jobs:
     - name: 同步至Gitee
       run: |
         git remote add gitee https://xiao-zhu245:${{env.GITEE_TOKEN}}@gitee.com/xiao-zhu245/TSMpackagemanager.git
-        echo "${{env.GITEE_TOKEN}}"
-        git add code/*.py  # 只添加 code 目录下的 .py 文件
-        git commit -m "Sync Python files from code directory" || echo "No changes to commit"
         git push --force gitee main
