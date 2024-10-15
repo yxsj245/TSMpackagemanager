@@ -23,5 +23,5 @@ jobs:
 
     - name: 同步至Gitee
       run: |
-        git remote add gitee https://xiao-zhu245:${{env.GITEE_TOKEN}}@gitee.com/xiao-zhu245/TSMpackagemanager.git
+        git remote add gitee https://xiao-zhu245:a96b4215a16b02460cc4fe525bc4eb1d@gitee.com/xiao-zhu245/TSMpackagemanager.git
         git push --force gitee main
