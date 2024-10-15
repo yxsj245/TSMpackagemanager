@@ -7,6 +7,8 @@ on:
     branches:
       - main
 
+  workflow_dispatch:  # 支持手动触发工作流
+
 jobs:
   upload-code:
     runs-on: ubuntu-latest
