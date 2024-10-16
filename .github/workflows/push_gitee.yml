@@ -1,0 +1,32 @@
+name: push_gitee
+
+on:
+  push:
+    paths:
+      - 'code/**'  # 仅当 code 目录发生变更时触发
+    branches:
+      - main
+
+  workflow_dispatch:  # 支持手动触发工作流
+
+jobs:
+  sync-to-gitee:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+
+    - name: 设置Git配置文件
+      run: |
+        git config --global user.name '小朱'
+        git config --global user.email '10714957+xiao-zhu245@user.noreply.gitee.com'
+
+    - name: 向Gitee同步仓库
+      env:
+        GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      run: |
+        git remote add gitee https://xiao-zhu245:${{ secrets.GITEE_TOKEN }}@gitee.com/xiao-zhu245/TSMpackagemanager.git #仓库地址
+        git fetch gitee main  # 拉取远程仓库最新内容
+        git reset --soft gitee/main  # 软重置以保持工作区不变
+        git commit -m "Sync Python files from code directory" || echo "No changes to commit"
+        git push --force gitee main  # 强制推送到远程仓库
