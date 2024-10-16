@@ -2,8 +2,6 @@ name: push_gitee
 
 on:
   push:
-    paths:
-      - 'code/**'  # 仅当 code 目录发生变更时触发
     branches:
       - main
 
@@ -28,5 +26,6 @@ jobs:
         git remote add gitee https://xiao-zhu245:${{ secrets.GITEE_TOKEN }}@gitee.com/xiao-zhu245/TSMpackagemanager.git #仓库地址
         git fetch gitee main  # 拉取远程仓库最新内容
         git reset --soft gitee/main  # 软重置以保持工作区不变
-        git commit -m "Sync Python files from code directory" || echo "No changes to commit"
+        git add code/*.py  # 只添加 code 目录下的 .py 文件
+        git commit -m "从GitHub-CI同步过来的文件" || echo "No changes to commit"
         git push --force gitee main  # 强制推送到远程仓库
