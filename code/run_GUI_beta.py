@@ -1,20 +1,17 @@
 #——————运行库——————
+import random
 import zipfile
 import hashlib
 import sys
 import tkinter as tk
 from tkinter import filedialog
 import winreg
-# from tqdm import tqdm
+from tqdm import tqdm
 import shutil
-import requests
 import json
-# from tkinter import ttk
+from tkinter import ttk
 from tkinter import messagebox
 import os
-# import threading
-# import pyperclip
-# from urllib.parse import unquote
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,6 +22,10 @@ import webbrowser
 import threading  # 确保导入 threading 模块
 import queue  # 确保导入 queue 模块
 from tkinter.ttk import Progressbar
+import pygame
+import requests
+import io
+import random
 
 # ————变量初始化————
 url = None
@@ -33,7 +34,7 @@ game_path = None # 游戏路径
 fileurl = None  #云端链接
 filepath = None #临时存储文件路径
 version_config = '0.5' #配置文件版本 切记需要更改创建配置文件方法内版本
-version_downconfig = '0.1' #下载配置文件版本 切记需要更改创建配置文件方法内版本
+version_downconfig = '0.2' #下载配置文件版本 切记需要更改创建配置文件方法内版本
 app_id = "2325290" #光遇游戏ID
 
 #---定义下载变量----
@@ -105,7 +106,7 @@ def create_default_downconfig(file_path="data/down.json", default_config=None):
     """
     if default_config is None:
         default_config = {
-            "version": "0.1",
+            "version": "0.2",
             "downloadurl":{
                 "gitee":[
                     'https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM.zip',
@@ -141,7 +142,8 @@ def create_default_downconfig(file_path="data/down.json", default_config=None):
                 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/data.json',
                 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/data_hanhua.json',
                 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/%E7%A4%BE%E5%8C%BA%E8%B5%84%E6%BA%90/datadc.json',
-                'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/%E7%A4%BE%E5%8C%BA%E8%B5%84%E6%BA%90/datacode.json'
+                'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/%E7%A4%BE%E5%8C%BA%E8%B5%84%E6%BA%90/datacode.json',
+                'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/down.json'
             ]
         }
 
@@ -549,6 +551,78 @@ def delete_feifiles_and_directories_with_confirmation(target_directory):
         except Exception as e:
             print(Fore.RED+f"ERROR: 删除目录时出错: {dir_path}, 错误: {e}")
 
+# 删除指定目录下的文件
+def delete_all_files_in_directory(directory_path):
+    # 检查指定路径是否为目录
+    if os.path.isdir(directory_path):
+        for filename in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, filename)
+            try:
+                # 如果是文件，则删除
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                # 如果是目录，则删除整个目录
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"删除 {file_path} 时出错: {e}")
+    else:
+        print(f"{directory_path} 不是一个有效的目录")
+
+# 下载文件
+def download_file_with_progress(url, save_path):
+    try:
+        # 检查并创建保存文件的目录
+        directory = os.path.dirname(save_path)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        # 发送 HTTP GET 请求获取文件信息
+        response = requests.get(url, stream=True, allow_redirects=True)
+        response.raise_for_status()  # 检查请求是否成功
+
+        # 检查内容类型，确保下载的是 ZIP 文件而不是 HTML 等其他内容
+        content_type = response.headers.get('Content-Type')
+        if 'text/html' in content_type:
+            print(Fore.RED + "ERROR:请求返回了HTML内容，可能URL无效或需要权限。")
+            return
+
+        # 获取文件的总大小（字节）
+        total_size = int(response.headers.get('content-length', 0))
+
+        # 通过 tqdm 显示进度条
+        with open(save_path, 'wb') as file, tqdm(
+                desc=save_path,
+                total=total_size,
+                unit='B',
+                unit_scale=True,
+                unit_divisor=1024,
+        ) as progress_bar:
+            # 分块下载文件
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+                progress_bar.update(len(chunk))  # 更新进度条
+
+        print(Fore.BLUE + f"INFO:文件已下载到临时存储目录")
+    except requests.exceptions.RequestException as e:
+        print(Fore.RED + f"ERROR:下载文件时出错: {e}")
+
+# 播放音频
+def music(url):
+    # 初始化 pygame
+    pygame.mixer.init()
+    # 从 URL 下载 MP3 文件
+    response = requests.get(url)
+    # 将 MP3 文件加载到 pygame 中
+    mp3_data = io.BytesIO(response.content)
+    pygame.mixer.music.load(mp3_data)
+    # 设置音量
+    pygame.mixer.music.set_volume(0.2)
+    # 播放 MP3 文件
+    pygame.mixer.music.play()
+    # 等待播放结束
+    while pygame.mixer.music.get_busy():
+        pygame.time.Clock().tick(10)
 
 # ——————运行方法库——————
 # 环境初始化
@@ -665,7 +739,7 @@ def initialization():
         input()
         sys.exit(1)
     if downdata['version'] != version_downconfig:
-        os.remove('down.json')
+        os.remove('data/down.json')
         print(Fore.RED + "ERROR:检测到“下载源配置文件”需要更新,请重新运行程序即可")
         input()
         sys.exit(1)
@@ -1001,6 +1075,160 @@ def OtherVersions():
     tk.Button(OtherVersiTSM, text='下载', command=run, font=('微软雅黑', 11)).grid(row=2, column=1)
     tk.Button(OtherVersiTSM, text='访问GitHub确认版本号', command=run2, font=('微软雅黑', 11)).grid(row=2, column=2)
     OtherVersiTSM.protocol('WM_DELETE_WINDOW', WindowEvent)
+
+# 软件设置
+def setup():
+    mainmenu.attributes('-alpha',0.5)
+    mainmenu.attributes('-topmost', False)
+    option = tk.Toplevel()
+    option.geometry("600x400")
+    option.title("软件设置")
+
+    # 初始化变量
+    jsondata = load_config()
+    downdata = load_downconfig()
+    filepath = jsondata['data_path']
+    game_path = jsondata['game_path']
+    base_path = filepath
+
+    Proxy = jsondata['Downloadsource']
+    Proxy_value = tk.StringVar(value=Proxy)
+
+
+    #运行方法库
+    # 清除临时下载文件
+    def run():
+        if messagebox.askquestion('注意',f'删除会将{filepath}目录所有文件删除,请确保目录下没有重要文件') =='yes':
+            delete_all_files_in_directory(filepath)
+            messagebox.showinfo('成功','删除完毕')
+            option.attributes('-alpha', 1)
+            option.focus_force()  # 强制聚焦
+        else:
+            option.attributes('-alpha', 1)
+            option.focus_force()  # 强制聚焦
+
+    # 重新检测下载线路
+    def run2():
+        print(Fore.BLUE + "INFO:正在检测最优线路,预计20秒,请耐心等待..")
+        fastest = download_files(urls)
+        if fastest:
+            if fastest == 'https://mirror.ghproxy.com/https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
+                messagebox.showinfo('成功','当前最优线路：github中国代理,与此同时汉化相关组件采用gitee网络')
+                update_config_value('Downloadsource', 'Mirrorghproxy')
+                option.attributes('-alpha', 1)
+                option.focus_force()  # 强制聚焦
+            elif fastest == 'https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
+                messagebox.showinfo('成功','当前最优线路：github,与此同时汉化相关组件采用gitee网络')
+                update_config_value('Downloadsource', 'github')
+                option.attributes('-alpha', 1)
+                option.focus_force()  # 强制聚焦
+            elif fastest == 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/%E6%B5%8B%E9%80%9F%E6%96%87%E4%BB%B6/test.txt':
+                messagebox.showinfo('成功','当前最优线路：cloudflare')
+                update_config_value('Downloadsource', 'cloudflare')
+                option.attributes('-alpha', 1)
+                option.focus_force()  # 强制聚焦
+            elif fastest == 'https://gitee.com/xiao-zhu245/filespeedmeasurement/releases/download/main/test.txt':
+                messagebox.showinfo('成功','当前最优线路：gitee')
+                update_config_value('Downloadsource', 'gitee')
+                option.attributes('-alpha', 1)
+                option.focus_force()  # 强制聚焦
+
+    # 更新下载源
+    def run3():
+        print(Fore.BLUE + 'INFO:开始下载最新配置文件,请稍后')
+        panduan = fetch_json_from_url(downdata['check'][4])
+        if panduan['version'] != version_downconfig:
+            messagebox.showwarning('警告','云端配置文件不兼容当前运行程序,请下载最新版程序')
+            webbrowser.open("https://www.123865.com/s/4bNtVv-cioKv")
+        else:
+            fileurl = downdata['check'][4]
+            save_path = os.path.join(os.getcwd(), "data",'down.json')
+            download_file_with_progress(fileurl, save_path)
+            messagebox.showinfo('成功','下载配置文件成功,请重新运行程序')
+            sys.exit(1)
+
+    # 更改下载文件临时存储目录
+    def run4():
+        base_path = select_directory(Fore.BLUE + "INFO:请选择文件存放目录")
+        update_config_value('data_path', base_path)
+        option.attributes('-alpha', 1)
+        option.focus_force()  # 强制聚焦
+
+    # 更改游戏目录
+    def run5():
+        game_path = select_directory(Fore.BLUE + "INFO:请选择游戏根目录")
+        update_config_value('game_path', game_path)
+        option.attributes('-alpha', 1)
+        option.focus_force()  # 强制聚焦
+
+    # 更改下载源
+    def run6():
+        update_config_value('Downloadsource', Proxy_value.get())
+        messagebox.showinfo('成功','设置成功,请重启生效.')
+        sys.exit(1)
+
+    def WindowEvent():
+        mainmenu.attributes('-alpha', 1)
+        mainmenu.focus_force()  # 强制聚焦
+        option.destroy()
+
+    # 标题
+    tk.Label(option, text='————设置项————', font=('微软雅黑', 16)).place(relx=0.5, y=50, anchor='center')
+    tk.Label(option, text='————目录————', font=('微软雅黑', 16)).place(relx=0.5, y=150, anchor='center')
+    tk.Label(option, text='————信息————', font=('微软雅黑', 16)).place(relx=0.5, y=250, anchor='center')
+
+
+    # 按钮
+    tk.Button(option, text='清除临时下载文件', command=run, font=('微软雅黑', 10)).place(relx=0.2, y=100,anchor='center')
+    tk.Button(option, text='重新检测下载线路', command=run2, font=('微软雅黑', 10)).place(relx=0.4, y=100,anchor='center')
+    tk.Button(option, text='更新下载源', command=run3, font=('微软雅黑', 10)).place(relx=0.6, y=100,anchor='center')
+    tk.Button(option, text='更改下载文件临时存储目录', command=run4, font=('微软雅黑', 10)).place(relx=0.2, y=200,anchor='center')
+    tk.Button(option, text='更改游戏目录', command=run5, font=('微软雅黑', 10)).place(relx=0.5, y=200,anchor='center')
+
+    option.protocol('WM_DELETE_WINDOW', WindowEvent)
+
+    # 动态文本
+    tk.Label(option, text='下载源：', font=('微软雅黑', 11)).place(relx=0.1, y=270, anchor='center')
+    # 下载源
+    combobox = ttk.Combobox(option,textvariable=Proxy_value,state="readonly",width=20)
+    combobox['values']=['gitee','cloudflare','Mirrorghproxy','github','other']
+    combobox.place(relx=0.3, y=270, anchor='center')
+    # 延迟显示
+    option.after(1, lambda: combobox.set(Proxy))
+
+    tk.Button(option, text='确认', command=run6, font=('微软雅黑', 10),width=50).place(relx=0.5, y=350, anchor='center')
+
+# 安装VC
+def installVC():
+    # 初始化变量
+    jsondata = load_config()
+    filepath = jsondata['data_path']
+
+    print(Fore.BLUE + 'INFO:开始下载VC')
+    fileurl = down_5
+    save_path = os.path.join(filepath, "VC_redist.x64.exe")
+    start_download_window(fileurl, save_path)
+    exe_path = os.path.join(filepath, "VC_redist.x64.exe")
+    subprocess.run(exe_path)
+
+    mainmenu.attributes('-alpha', 1)
+    mainmenu.focus_force()  # 强制聚焦
+
+# 播放音频
+def startMp3():
+    but1.config(state=tk.DISABLED)
+    print(Fore.BLUE + 'INFO:音乐开始播放,需要下载音频数据,届时不影响使用。如需关闭软件请关闭终端')
+    Mp3list=['https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/MP3/%E8%83%A1%E5%B0%8F%E9%B8%A5%20-%20%E7%9B%B8%E8%AE%B8.mp3',
+             'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/MP3/Vincent%20Diamante%20-%20Finding%20the%20Horizon.mp3',
+             'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/MP3/Vincent%20Diamante%20-%20Returns.mp3']
+    def run():
+        while True:
+            linshi = random.randint(0, len(Mp3list) - 1)
+            music(Mp3list[linshi])
+
+    mp3 = threading.Thread(target=run)
+    mp3.daemon = True
+    mp3.start()
 #————软件信息————
 def github():
     webbrowser.open("https://github.com/yxsj245/TSMpackagemanager")
@@ -1013,6 +1241,7 @@ initialization()
 
 # 主菜单设置
 global mainmenu
+global but1
 mainmenu = tk.Tk()
 mainmenu.geometry("600x400")  # 设置窗口大小
 mainmenu.title('主菜单')
@@ -1020,7 +1249,7 @@ mainmenu.title('主菜单')
 # ——主菜单内容——
 tk.Label(mainmenu,text='————TSM的安装与更新————',font=('微软雅黑',16)).place(relx=0.5, y=50, anchor='center')
 tk.Label(mainmenu,text='————软件信息————',font=('微软雅黑',16)).place(relx=0.5, y=200, anchor='center')
-tk.Label(mainmenu,text='更多功能,还在紧张适配当中,相信很快即可使用',font=('微软雅黑',16),bg='yellow',fg='blue').place(relx=0.5, y=350, anchor='center')
+# tk.Label(mainmenu,text='更多功能,还在紧张适配当中,相信很快即可使用',font=('微软雅黑',16),bg='yellow',fg='blue').place(relx=0.5, y=350, anchor='center')
 
 # ——主菜单按钮——
 # TSM相关功能
@@ -1029,11 +1258,18 @@ tk.Button(mainmenu,text='从本地文件安装',command=Localfileinstallation,fo
 tk.Button(mainmenu,text='更新',command=UpdateTSM,font=('微软雅黑',10)).place(relx=0.6, y=100, anchor='center')
 tk.Button(mainmenu,text='一键卸载',command=UninstallTSM,font=('微软雅黑',10)).place(relx=0.8, y=100, anchor='center')
 tk.Button(mainmenu,text='安装其它版本',command=OtherVersions,font=('微软雅黑',10)).place(relx=0.2, y=150, anchor='center')
+tk.Button(mainmenu,text='安装VC',command=installVC,font=('微软雅黑',10)).place(relx=0.4, y=150, anchor='center')
+tk.Button(mainmenu,text='故障排除',command=Troubleshooting,font=('微软雅黑',10),width=10).place(relx=0.6, y=150, anchor='center')
 
 # 软件信息
+tk.Button(mainmenu,text='软件设置',command=setup,font=('微软雅黑',10)).place(relx=0.7, y=250, anchor='center')
 tk.Button(mainmenu,text='前往GitHub查看开源代码',command=github,font=('微软雅黑',10)).place(relx=0.2, y=250, anchor='center')
 tk.Button(mainmenu,text='前往Gitee查看开源代码',command=gitee,font=('微软雅黑',10)).place(relx=0.5, y=250, anchor='center')
-# tk.Button(mainmenu,text='故障排除',command=Troubleshooting,font=('微软雅黑',10),width=10).place(relx=0.2, y=150, anchor='center')
+
+
+
+but1 = tk.Button(mainmenu,text='播放音乐边听边用',command=startMp3,font=('微软雅黑',10),width=50)
+but1.place(relx=0.5, y=350, anchor='center')
 
 # 开启窗口
 mainmenu.mainloop()
