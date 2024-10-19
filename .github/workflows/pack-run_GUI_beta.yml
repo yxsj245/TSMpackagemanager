@@ -36,7 +36,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip #更新pip
         python -m pip install pyinstaller #安装打包工具
-        python -m pip install requests colorama psutil #安装的pip库
+        python -m pip install requests colorama psutil tqdm pygame #安装的pip库
 
     - name: 打包项目
       run: |
