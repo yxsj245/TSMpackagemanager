@@ -5,7 +5,6 @@ import sys
 import tkinter as tk
 from tkinter import filedialog
 import winreg
-from colorama import Fore, init
 import shutil
 import json
 from tkinter import messagebox
