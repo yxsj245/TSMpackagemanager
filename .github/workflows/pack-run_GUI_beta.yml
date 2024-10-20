@@ -36,11 +36,11 @@ jobs:
       run: |
         python -m pip install --upgrade pip #更新pip
         python -m pip install pyinstaller #安装打包工具
-        python -m pip install requests colorama psutil tqdm pygame #安装的pip库
+        python -m pip install requests colorama psutil pygame #安装的pip库
 
     - name: 打包项目
       run: |
-        pyinstaller -F ${{ env.CODE_DIR }}/run_GUI_beta.py
+        pyinstaller --noconsole -F ${{ env.CODE_DIR }}/run_GUI_beta.py
 
     - name: 上传文件
       uses: actions/upload-artifact@v4
