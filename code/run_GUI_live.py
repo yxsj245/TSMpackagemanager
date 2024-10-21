@@ -3,6 +3,7 @@ import zipfile
 import hashlib
 import sys
 import tkinter as tk
+from time import sleep
 from tkinter import filedialog
 import winreg
 import shutil
@@ -25,6 +26,7 @@ import io
 import random
 from tkinter import ttk
 from tkinter import scrolledtext
+import locale
 
 # ————变量初始化————
 url = None
@@ -32,8 +34,8 @@ base_path = None  # 文件路径
 game_path = None # 游戏路径
 fileurl = None  #云端链接
 filepath = None #临时存储文件路径
-version_config = '0.5' #配置文件版本 切记需要更改创建配置文件方法内版本
-version_downconfig = '0.2' #下载配置文件版本 切记需要更改创建配置文件方法内版本
+version_config = '0.6' #配置文件版本 切记需要更改创建配置文件方法内版本
+version_downconfig = '0.4' #下载配置文件版本 切记需要更改创建配置文件方法内版本
 app_id = "2325290" #光遇游戏ID
 
 #---定义下载变量----
@@ -79,11 +81,12 @@ def create_default_config(file_path="data/config.json", default_config=None):
     """
     if default_config is None:
         default_config = {
-            "version":"0.5",
+            "version":"0.6",
             "first": True,
             "game_path": None,
             "data_path": None,
-            "Downloadsource": None
+            "Downloadsource": None,
+            "region":None
         }
 
     # 提取文件目录
@@ -105,7 +108,7 @@ def create_default_downconfig(file_path="data/down.json", default_config=None):
     """
     if default_config is None:
         default_config = {
-            "version": "0.2",
+            "version": "0.4",
             "downloadurl":{
                 "gitee":[
                     'https://gitee.com/xiao-zhu245/TSMinstall/releases/download/TSM/TSM.zip',
@@ -119,7 +122,8 @@ def create_default_downconfig(file_path="data/down.json", default_config=None):
                     'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/sml-pc.zip',
                     'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/TSM_font.zip',
                     'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/TSMmap-ZH_CN.zip',
-                    'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/VC_redist.x64.exe'
+                    'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/VC_redist.x64.exe',
+                    'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/TSM_font_TC.zip'
                 ],
                 'Mirrorghproxy':[
                     'https://mirror.ghproxy.com/https://github.com/XeTrinityz/ThatSkyMod/releases/latest/download/TSM.zip',
@@ -139,9 +143,6 @@ def create_default_downconfig(file_path="data/down.json", default_config=None):
             },
             "check":[
                 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/data.json',
-                'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/data_hanhua.json',
-                'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/%E7%A4%BE%E5%8C%BA%E8%B5%84%E6%BA%90/datadc.json',
-                'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/%E7%A4%BE%E5%8C%BA%E8%B5%84%E6%BA%90/datacode.json',
                 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/down.json'
             ]
         }
@@ -295,6 +296,7 @@ def start_download_window(url, save_path):
             download_window.destroy()
 
         except requests.exceptions.RequestException as e:
+            print(e)
             messagebox.showerror('致命错误','下载文件时出现错误')
             sys.exit(1)
 
@@ -619,116 +621,201 @@ def music(url):
 # ——————运行方法库——————
 # 环境初始化
 def initialization():
-    # print(Fore.BLUE + 'INFO:程序初始化')
-    # 环境初始化
-    # 初始配置文件json
+    mainmenu.withdraw()
+    #变量初始化
+    def Variable():
+        try:
+            jsondata = load_config()
+            downdata = load_downconfig()
+            filepath = jsondata['data_path']
+            game_path = jsondata['game_path']
+            base_path = filepath
+            url = downdata['check'][0]
+            global down_1
+            global down_2
+            global down_3
+            global down_4
+            global down_5
+            if jsondata['Downloadsource'] == 'gitee':
+                # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用分流模式,TSM组件会受到作者上传速度影响,如需下载最新版可以使用序号4功能')
+                down_1 = downdata['downloadurl']['gitee'][0]
+                down_2 = downdata['downloadurl']['gitee'][1]
+                down_3 = downdata['downloadurl']['gitee'][2]
+                down_4 = downdata['downloadurl']['gitee'][3]
+                down_5 = downdata['downloadurl']['gitee'][4]
+            elif jsondata['Downloadsource'] == 'cloudflare':
+                # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用分流模式,TSM组件会受到作者上传速度影响,如需下载最新版可以使用序号4功能')
+                down_1 = downdata['downloadurl']['cloudflare'][0]
+                down_2 = downdata['downloadurl']['cloudflare'][1]
+                down_3 = downdata['downloadurl']['cloudflare'][2]
+                down_4 = downdata['downloadurl']['cloudflare'][3]
+                down_5 = downdata['downloadurl']['cloudflare'][4]
+            elif jsondata['Downloadsource'] == 'Mirrorghproxy':
+                # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用github,一键功能下载到的TSM组件为最新版')
+                down_1 = downdata['downloadurl']['Mirrorghproxy'][0]
+                down_2 = downdata['downloadurl']['Mirrorghproxy'][1]
+                down_3 = downdata['downloadurl']['Mirrorghproxy'][2]
+                down_4 = downdata['downloadurl']['Mirrorghproxy'][3]
+                down_5 = downdata['downloadurl']['Mirrorghproxy'][4]
+            elif jsondata['Downloadsource'] == 'github':
+                # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用github,一键功能下载到的TSM组件为最新版')
+                down_1 = downdata['downloadurl']['github'][0]
+                down_2 = downdata['downloadurl']['github'][1]
+                down_3 = downdata['downloadurl']['github'][2]
+                down_4 = downdata['downloadurl']['github'][3]
+                down_5 = downdata['downloadurl']['github'][4]
+            else:
+                down_1 = downdata['downloadurl']['other'][0]
+                down_2 = downdata['downloadurl']['other'][1]
+                down_3 = downdata['downloadurl']['other'][2]
+                down_4 = downdata['downloadurl']['other'][3]
+                down_5 = downdata['downloadurl']['other'][4]
+        except KeyError:
+            os.remove('data/config.json')
+            os.remove('data/down.json')
+            messagebox.showwarning('警告', '检测到配置文件与主程序不兼容或损坏,已删除,请重新运行程序')
+            sys.exit(0)
+        if jsondata['version'] != version_config:
+            os.remove('data/config.json')
+            messagebox.showwarning('警告', '检测到配置文件与主程序不兼容或损坏,已删除,请重新运行程序')
+            sys.exit(0)
+        if downdata['version'] != version_downconfig:
+            os.remove('data/down.json')
+            messagebox.showwarning('警告', '检测到配置文件与主程序不兼容或损坏,已删除,请重新运行程序')
+            sys.exit(0)
+        mainmenu.deiconify()
+
+    # 初始化
+    def initializat():
+        def WindowEvent():
+            sys.exit(0)
+        # 创建子窗口
+        initiali = tk.Toplevel()
+        initiali.title('TSM包管理器4.2_环境初始化')
+
+        # 变量
+        current_locale = None #系统区域语言
+
+        contents = tk.StringVar()
+        Temporaryfiles = tk.StringVar()
+        Downloadsource = tk.StringVar()
+
+        # print(Downloadsource.get())
+
+
+        # 运行主程序
+        game_path = get_game_install_location()
+        if game_path == None:
+            messagebox.showwarning('获取游戏路径失败', '由于注册表问题无法获取游戏路径,请手动选择游戏的根目录')
+            game_path = select_directory(Fore.BLUE + "INFO:请选择游戏根目录")
+            contents.set(game_path)
+        else:
+            contents.set(game_path)
+
+        filepath = os.getcwd()
+        filepath = os.path.join(filepath, 'Downloadedfiles')
+        Temporaryfiles.set(filepath)
+
+
+
+        try:
+            locale.setlocale(locale.LC_ALL, '')
+            current_locale = locale.getlocale()
+        except Exception as e:
+            messagebox.showerror('错误','读取系统区域语言失败')
+
+        # 运行方法库
+        # 更改游戏目录
+        def run():
+            game_path = select_directory("选择游戏根目录")
+            contents.set(game_path)
+
+        # 更改下载目录
+        def run2():
+            filepath = select_directory("选择目录")
+            Temporaryfiles.set(filepath)
+
+        # 更改下载源
+        def run3():
+            linshi1.config(state=tk.DISABLED,text='正在进行中')
+            def main():
+                fastest = download_files(urls)
+                # fastest = 'https://gitee.com/xiao-zhu245/filespeedmeasurement/releases/download/main/test.txt'
+                if fastest:
+                    if fastest == 'https://mirror.ghproxy.com/https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
+                        Downloadsource.set('Mirrorghproxy')
+                        linshi1.config(state=tk.NORMAL, text='重新检测')
+                        # update_config_value('Downloadsource', 'Mirrorghproxy')
+                    elif fastest == 'https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
+                        Downloadsource.set('github')
+                        linshi1.config(state=tk.NORMAL, text='重新检测')
+                        # update_config_value('Downloadsource', 'github')
+                    elif fastest == 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/%E6%B5%8B%E9%80%9F%E6%96%87%E4%BB%B6/test.txt':
+                        Downloadsource.set('cloudflare')
+                        linshi1.config(state=tk.NORMAL, text='重新检测')
+                        # update_config_value('Downloadsource', 'cloudflare')
+                    elif fastest == 'https://gitee.com/xiao-zhu245/filespeedmeasurement/releases/download/main/test.txt':
+                        Downloadsource.set('gitee')
+                        linshi1.config(state=tk.NORMAL, text='重新检测')
+                        # update_config_value('Downloadsource', 'gitee')
+
+            thread1 = threading.Thread(target=main)
+            thread1.start()
+
+        # 应用更改
+        def Stop():
+            update_config_value('game_path', contents.get())
+            update_config_value('data_path', Temporaryfiles.get())
+            update_config_value('Downloadsource', Downloadsource.get())
+            update_config_value('first', False)
+            initiali.destroy()
+            mainmenu.deiconify()
+            Variable()
+
+
+        tk.Label(initiali,text='游戏目录：',font=('微软雅黑',12)).grid(row=1,column=1)
+        tk.Entry(initiali,width=70,font=('微软雅黑',12),state='read',textvariable=contents).grid(row=1,column=2)
+
+        tk.Label(initiali, text='临时文件存储目录：', font=('微软雅黑', 12)).grid(row=2, column=1)
+        tk.Entry(initiali, width=70, font=('微软雅黑', 12), state='read', textvariable=Temporaryfiles).grid(row=2, column=2)
+
+        tk.Label(initiali, text='下载源：', font=('微软雅黑', 12)).grid(row=3, column=1)
+        combobox = ttk.Combobox(initiali, textvariable=Downloadsource, state="readonly", width=70)
+        combobox['values'] = ['gitee', 'cloudflare', 'Mirrorghproxy', 'github', 'other']
+        combobox.grid(row=3, column=2)
+        try:
+            if current_locale[0]!= 'Chinese (Simplified)_China':
+                initiali.after(1, lambda: combobox.set('cloudflare'))
+                update_config_value('region', '繁体中文')
+            else:
+                initiali.after(1, lambda: combobox.set('Mirrorghproxy'))
+                update_config_value('region','简体中文')
+        except Exception as e:
+            messagebox.showwarning('警告','由于无法读取系统区域语言,默认采用中国代理')
+            initiali.after(1, lambda: combobox.set('Mirrorghproxy'))
+
+        ttk.Button(initiali,text='更改目录',command=run, padding=(10, 5)).grid(row=1, column=3)
+        ttk.Button(initiali,text='更改目录',command=run2, padding=(10, 5)).grid(row=2, column=3)
+        linshi1 = ttk.Button(initiali, text='检测最优线路', command=run3, padding=(10, 5))
+        linshi1.grid(row=3, column=3)
+
+        ttk.Button(initiali, text='确认所有配置', command=Stop, padding=(10, 5)).grid(row=4, column=1)
+
+        initiali.protocol('WM_DELETE_WINDOW', WindowEvent)
+
     config = load_config()
     if config is None:
         create_default_config()
         config = load_config()
-        # print(Fore.BLUE + "INFO:创建程序配置文件")
     # 初始下载配置文件
     down = load_downconfig()
     if down is None:
         create_default_downconfig()
         config = load_downconfig()
-        # print(Fore.BLUE + "INFO:创建程序下载地址配置文件")
     if load_config()['first']:
-        # print(Fore.BLUE + "INFO:执行初始化设置向导")
-        # print(Fore.BLUE + "INFO:设置游戏目录(1/2)")
-        game_path = get_game_install_location()
-        if game_path == None:
-            messagebox.showwarning('获取游戏路径失败', '由于注册表问题无法获取游戏路径,请手动选择游戏的根目录')
-            game_path = select_directory(Fore.BLUE + "INFO:请选择游戏根目录")
-        else:
-            xuanze = messagebox.askokcancel('获取路径成功', f'您的游戏安装目录为:{game_path} 取消以表示重新设置目录')
-            if xuanze != True:
-                game_path = select_directory(Fore.BLUE + "INFO:请选择游戏根目录")
-        update_config_value('game_path', game_path)
-        # INFO:设置下载的临时文件存储位置
-        filepath = os.getcwd()
-        filepath = os.path.join(filepath, 'Downloadedfiles')
-        update_config_value('data_path', filepath)
-        messagebox.showinfo('温馨提示', '正在检测最优线路,预计20秒,请耐心等待')
-        fastest = download_files(urls)
-        # fastest = 'https://gitee.com/xiao-zhu245/filespeedmeasurement/releases/download/main/test.txt'
-        if fastest:
-            if fastest == 'https://mirror.ghproxy.com/https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
-                # print(Fore.BLUE + 'INFO:当前最优线路：github中国代理,与此同时汉化相关组件采用gitee网络')
-                update_config_value('Downloadsource', 'Mirrorghproxy')
-            elif fastest == 'https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
-                # print(Fore.BLUE + 'INFO:当前最优线路：github,与此同时汉化相关组件采用cloudlfare网络')
-                update_config_value('Downloadsource', 'github')
-            elif fastest == 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/%E6%B5%8B%E9%80%9F%E6%96%87%E4%BB%B6/test.txt':
-                # print(Fore.BLUE + 'INFO:当前最优线路：cloudflare')
-                update_config_value('Downloadsource', 'cloudflare')
-            elif fastest == 'https://gitee.com/xiao-zhu245/filespeedmeasurement/releases/download/main/test.txt':
-                # print(Fore.BLUE + 'INFO:当前最优线路：gitee')
-                update_config_value('Downloadsource', 'gitee')
-        update_config_value('first', False)
-        messagebox.showinfo('设置向导完毕','为确保窗口组件工作正常,请重新运行软件')
-        sys.exit(0)
-    # 设置变量值
-    try:
-        jsondata = load_config()
-        downdata = load_downconfig()
-        filepath = jsondata['data_path']
-        game_path = jsondata['game_path']
-        base_path = filepath
-        url = downdata['check'][0]
-        # --下载源设置---
-        global down_1
-        global down_2
-        global down_3
-        global down_4
-        global down_5
-        if jsondata['Downloadsource'] == 'gitee':
-            # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用分流模式,TSM组件会受到作者上传速度影响,如需下载最新版可以使用序号4功能')
-            down_1 = downdata['downloadurl']['gitee'][0]
-            down_2 = downdata['downloadurl']['gitee'][1]
-            down_3 = downdata['downloadurl']['gitee'][2]
-            down_4 = downdata['downloadurl']['gitee'][3]
-            down_5 = downdata['downloadurl']['gitee'][4]
-        elif jsondata['Downloadsource'] == 'cloudflare':
-            # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用分流模式,TSM组件会受到作者上传速度影响,如需下载最新版可以使用序号4功能')
-            down_1 = downdata['downloadurl']['cloudflare'][0]
-            down_2 = downdata['downloadurl']['cloudflare'][1]
-            down_3 = downdata['downloadurl']['cloudflare'][2]
-            down_4 = downdata['downloadurl']['cloudflare'][3]
-            down_5 = downdata['downloadurl']['cloudflare'][4]
-        elif jsondata['Downloadsource'] == 'Mirrorghproxy':
-            # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用github,一键功能下载到的TSM组件为最新版')
-            down_1 = downdata['downloadurl']['Mirrorghproxy'][0]
-            down_2 = downdata['downloadurl']['Mirrorghproxy'][1]
-            down_3 = downdata['downloadurl']['Mirrorghproxy'][2]
-            down_4 = downdata['downloadurl']['Mirrorghproxy'][3]
-            down_5 = downdata['downloadurl']['Mirrorghproxy'][4]
-        elif jsondata['Downloadsource'] == 'github':
-            # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用github,一键功能下载到的TSM组件为最新版')
-            down_1 = downdata['downloadurl']['github'][0]
-            down_2 = downdata['downloadurl']['github'][1]
-            down_3 = downdata['downloadurl']['github'][2]
-            down_4 = downdata['downloadurl']['github'][3]
-            down_5 = downdata['downloadurl']['github'][4]
-        else:
-            down_1 = downdata['downloadurl']['other'][0]
-            down_2 = downdata['downloadurl']['other'][1]
-            down_3 = downdata['downloadurl']['other'][2]
-            down_4 = downdata['downloadurl']['other'][3]
-            down_5 = downdata['downloadurl']['other'][4]
-    except KeyError:
-        os.remove('data/config.json')
-        os.remove('data/down.json')
-        messagebox.showwarning('警告','检测到配置文件与主程序不兼容或损坏,已删除,请重新运行程序')
-        sys.exit(0)
-    if jsondata['version'] != version_config:
-        os.remove('data/config.json')
-        messagebox.showwarning('警告', '检测到配置文件与主程序不兼容或损坏,已删除,请重新运行程序')
-        sys.exit(0)
-    if downdata['version'] != version_downconfig:
-        os.remove('data/down.json')
-        messagebox.showwarning('警告', '检测到配置文件与主程序不兼容或损坏,已删除,请重新运行程序')
-        sys.exit(0)
+        initializat()
+    else:
+        Variable()
 
 # 故障排除
 def Troubleshooting():
@@ -773,6 +860,7 @@ def OneclickinstallationTSM():
         downdata = load_downconfig()
         filepath = jsondata['data_path']
         game_path = jsondata['game_path']
+        regionoption = jsondata['region']
         base_path = filepath
         url = downdata['check'][0]
         # print(Fore.BLUE + "INFO:开始下载文件")
@@ -780,6 +868,7 @@ def OneclickinstallationTSM():
         # ————调试注释————
         # 下载TSM.zip
         fileurl = down_1
+        print(down_1)
         save_path = os.path.join(filepath, "TSM.zip")
         start_download_window(fileurl,save_path)
 
@@ -789,36 +878,39 @@ def OneclickinstallationTSM():
         start_download_window(fileurl,save_path)
 
         # 下载TSM_font.zip
-        fileurl = down_3
-        save_path = os.path.join(filepath, "TSM_font.zip")
-        start_download_window(fileurl,save_path)
+        if regionoption == '简体中文':
+            fileurl = down_3
+            save_path = os.path.join(filepath, "TSM_font.zip")
+            start_download_window(fileurl,save_path)
+        else:
+            fileurl = downdata['downloadurl']['cloudflare'][5]
+            save_path = os.path.join(filepath, "TSM_font.zip")
+            start_download_window(fileurl,save_path)
 
         # 下载TSMmap-ZH_CN.zip
         fileurl = down_4
         save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
         start_download_window(fileurl,save_path)
         # ————调试注释————
-
-        # print(Fore.BLUE + "INFO:文件下载完毕,开始校验文件")
-        installOne.config(state=tk.DISABLED, text='正在校验文件')
-        # 获取JSON数据
         #————调试注释————
-        json_data = fetch_json_from_url(url)
-        # 如果成功获取到JSON数据，则进行文件校验
-        if json_data:
-            for item in json_data:
-                filename = item.get("filename")
-                expected_md5 = item.get("md5")
+        if regionoption == '简体中文':
+            installOne.config(state=tk.DISABLED, text='正在校验文件')
+            json_data = fetch_json_from_url(url)
+            # 如果成功获取到JSON数据，则进行文件校验
+            if json_data:
+                for item in json_data:
+                    filename = item.get("filename")
+                    expected_md5 = item.get("md5")
 
-                if filename and expected_md5:
-                    file_path = os.path.join(base_path, filename)  # 拼接基础路径和文件名
-                    if verify_md5(file_path, expected_md5):
-                        None
+                    if filename and expected_md5:
+                        file_path = os.path.join(base_path, filename)  # 拼接基础路径和文件名
+                        if verify_md5(file_path, expected_md5):
+                            None
+                        else:
+                            sys.exit(1)  # 如果MD5不匹配，终止程序
                     else:
-                        sys.exit(1)  # 如果MD5不匹配，终止程序
-                else:
-                    pass
-                    # print(Fore.RED+"ERROR:JSON数据中缺少文件名或MD5值，跳过该项。")
+                        pass
+                        # print(Fore.RED+"ERROR:JSON数据中缺少文件名或MD5值，跳过该项。")
         # ————调试注释————
 
         # print(Fore.BLUE + "INFO:文件信息校验完毕。")
@@ -1040,6 +1132,20 @@ def UninstallTSM():
     ttk.Button(UninstaTSM, text='彻底卸载', command=run2, padding=(11, 5)).grid(row=1, column=2)
     UninstaTSM.protocol('WM_DELETE_WINDOW', WindowEvent)
 
+# 重置TSM
+def ResetTSM():
+    jsondata = load_config()
+    game_path = jsondata['game_path']
+
+    try:
+        os.remove(os.path.join(game_path, 'mods', 'TSM Resources', 'Theme.json'))
+        os.remove(os.path.join(game_path, 'mods', 'TSM Resources', 'TSM.json'))
+        messagebox.showinfo('成功','重置完毕')
+    except FileNotFoundError as e:
+        messagebox.showwarning('警告', 'TSM已经在默认状态了')
+    except Exception as e:
+        messagebox.showwarning('致命错误', '删除文件时发生错误')
+        sys.exit(1)
 # 安装其他版本
 def OtherVersions():
     mainmenu.attributes('-alpha',0.5)
@@ -1115,10 +1221,12 @@ def setup():
     downdata = load_downconfig()
     filepath = jsondata['data_path']
     game_path = jsondata['game_path']
+    regionoption = jsondata['region']
     base_path = filepath
 
     Proxy = jsondata['Downloadsource']
     Proxy_value = tk.StringVar(value=Proxy)
+    regionvalue=tk.StringVar(value=regionoption)
 
 
     #运行方法库
@@ -1201,9 +1309,10 @@ def setup():
         option.attributes('-alpha', 1)
         option.focus_force()  # 强制聚焦
 
-    # 更改下载源
-    def run6():
+    # 确认更改
+    def Apply():
         update_config_value('Downloadsource', Proxy_value.get())
+        update_config_value('region', regionvalue.get())
         messagebox.showinfo('成功','设置成功,请重启生效.')
         sys.exit(0)
 
@@ -1238,7 +1347,14 @@ def setup():
     # 延迟显示
     option.after(1, lambda: combobox.set(Proxy))
 
-    ttk.Button(option, text='确认', command=run6, padding=(10, 10),width=50).place(relx=0.5, y=350, anchor='center')
+    # 区域语言
+    tk.Label(option, text='区域语言：', font=('微软雅黑', 11)).place(relx=0.1, y=310, anchor='center')
+    region = ttk.Combobox(option, textvariable=regionvalue, state="readonly", width=20)
+    region['values'] = ['简体中文','繁体中文']
+    region.place(relx=0.3, y=310, anchor='center')
+    option.after(1, lambda: region.set(regionoption))
+
+    ttk.Button(option, text='确认', command=Apply, padding=(10, 10),width=50).place(relx=0.5, y=370, anchor='center')
 
 # 安装VC
 def installVC():
@@ -1283,9 +1399,6 @@ def DocumentStation():
 def sponsor():
     webbrowser.open("https://www.goofish.com/item?id=830106258067&spm=widle.12011849.copy.detail&ut_sk=1.ZK1cY5c8vMgDADyNPjuw0sjp_21407387_1728812506853.copy.detail.830106258067.2200699006720")
     webbrowser.open("https://tsmpackagemanager.skymusicscore.asia/WEB/#/docs/%E4%BD%BF%E7%94%A8%E8%AF%BE%E7%A8%8B?id=%e4%b8%ba%e4%bb%80%e4%b9%88%e8%a6%81%e8%b5%9e%e5%8a%a9%ef%bc%9f")
-# 运行初始化方法
-initialization()
-
 
 # 主菜单设置
 global mainmenu
@@ -1295,8 +1408,10 @@ global installTwo
 mainmenu = tk.Tk()
 mainmenu.geometry("600x450")  # 设置窗口大小
 mainmenu.minsize(450,382)
-mainmenu.title('TSM包管理器4.0')
+mainmenu.title('TSM包管理器4.2')
 
+# 运行初始化方法
+initialization()
 
 def WindowEvent():
     os._exit(0)
@@ -1314,9 +1429,10 @@ installTwo = ttk.Button(mainmenu, text='从本地文件安装', command=Localfil
 installTwo.place(relx=0.4, y=90, anchor='center')
 ttk.Button(mainmenu, text='更新', command=UpdateTSM, padding=button_padding).place(relx=0.6, y=90, anchor='center')
 ttk.Button(mainmenu, text='一键卸载', command=UninstallTSM, padding=button_padding).place(relx=0.8, y=90, anchor='center')
-ttk.Button(mainmenu, text='安装其它版本', command=OtherVersions, padding=button_padding).place(relx=0.3, y=140, anchor='center')
-ttk.Button(mainmenu, text='安装VC', command=installVC, padding=button_padding).place(relx=0.5, y=140, anchor='center')
-ttk.Button(mainmenu, text='故障排除', command=Troubleshooting, padding=button_padding, width=10).place(relx=0.7, y=140, anchor='center')
+ttk.Button(mainmenu, text='安装其它版本', command=OtherVersions, padding=button_padding).place(relx=0.2, y=140, anchor='center')
+ttk.Button(mainmenu, text='安装VC', command=installVC, padding=button_padding).place(relx=0.4, y=140, anchor='center')
+ttk.Button(mainmenu, text='故障排除', command=Troubleshooting, padding=button_padding, width=10).place(relx=0.6, y=140, anchor='center')
+ttk.Button(mainmenu, text='重置TSM', command=ResetTSM, padding=button_padding, width=10).place(relx=0.8, y=140, anchor='center')
 
 # 软件信息部分
 ttk.Button(mainmenu, text='软件设置', command=setup, padding=(10, 10), width=25).place(relx=0.5, y=260, anchor='center')
