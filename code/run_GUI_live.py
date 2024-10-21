@@ -618,6 +618,30 @@ def music(url):
     while pygame.mixer.music.get_busy():
         pygame.time.Clock().tick(10)
 
+# 移动文件
+def move_files_and_directories(game_path, files_to_delete, directories_to_delete, destination_path):
+    # 创建目标路径（如果不存在）
+    if not os.path.exists(destination_path):
+        os.makedirs(destination_path)
+
+    # 移动文件
+    for file_name in files_to_delete:
+        file_path = os.path.join(game_path, file_name)
+        if os.path.exists(file_path):
+            shutil.move(file_path, destination_path)
+        else:
+            pass
+            # print(Fore.RED+ f"ERROR:找不到文件: {file_name}")
+
+    # 移动文件夹
+    for dir_name in directories_to_delete:
+        dir_path = os.path.join(game_path, dir_name)
+        if os.path.exists(dir_path):
+            shutil.move(dir_path, destination_path)
+        else:
+            pass
+            # print(Fore.RED+ f"ERROR:找不到目录： {dir_name}")
+
 # ——————运行方法库——————
 # 环境初始化
 def initialization():
@@ -1386,6 +1410,43 @@ def startMp3():
     mp3 = threading.Thread(target=run)
     mp3.daemon = True
     mp3.start()
+
+# TSM状态
+def TSMstateTSM():
+    jsondata = load_config()
+    game_path = jsondata['game_path']
+    if stateTSM.get() == '启用':
+        path = os.getcwd()
+        path = os.path.join(path, 'TemporaryTSM')
+        #
+        files_to_delete = [
+            "libcurl.dll",
+            "powrprof.dll",
+            "sml_config.json"
+        ]
+
+        directories_to_delete = [
+            "fonts",
+            "mods"
+        ]
+        move_files_and_directories(path, files_to_delete, directories_to_delete, game_path)
+        messagebox.showinfo('成功','完毕')
+    else:
+        path = os.getcwd()
+        path = os.path.join(path,'TemporaryTSM')
+        #
+        files_to_delete = [
+            "libcurl.dll",
+            "powrprof.dll",
+            "sml_config.json"
+        ]
+
+        directories_to_delete = [
+            "fonts",
+            "mods"
+        ]
+        move_files_and_directories(game_path, files_to_delete, directories_to_delete, path)
+        messagebox.showinfo('成功','完毕')
 #————软件信息————
 def github():
     webbrowser.open("https://github.com/yxsj245/TSMpackagemanager")
@@ -1405,10 +1466,14 @@ global mainmenu
 global but1
 global installOne
 global installTwo
+global stateTSM
 mainmenu = tk.Tk()
 mainmenu.geometry("600x450")  # 设置窗口大小
 mainmenu.minsize(450,382)
 mainmenu.title('TSM包管理器4.2')
+
+# 变量
+stateTSM=tk.StringVar()
 
 # 运行初始化方法
 initialization()
@@ -1433,6 +1498,11 @@ ttk.Button(mainmenu, text='安装其它版本', command=OtherVersions, padding=b
 ttk.Button(mainmenu, text='安装VC', command=installVC, padding=button_padding).place(relx=0.4, y=140, anchor='center')
 ttk.Button(mainmenu, text='故障排除', command=Troubleshooting, padding=button_padding, width=10).place(relx=0.6, y=140, anchor='center')
 ttk.Button(mainmenu, text='重置TSM', command=ResetTSM, padding=button_padding, width=10).place(relx=0.8, y=140, anchor='center')
+
+ttk.Label(mainmenu, text='TSM状态：', padding=button_padding, width=10).place(relx=0.2, y=180, anchor='center')
+ttk.Radiobutton(mainmenu,text='启用',variable=stateTSM,value='启用').place(relx=0.3, y=180, anchor='center')
+ttk.Radiobutton(mainmenu,text='禁用',variable=stateTSM,value='禁用').place(relx=0.4, y=180, anchor='center')
+ttk.Button(mainmenu, text='确认更改', command=TSMstateTSM, padding=button_padding, width=10).place(relx=0.6, y=180, anchor='center')
 
 # 软件信息部分
 ttk.Button(mainmenu, text='软件设置', command=setup, padding=(10, 10), width=25).place(relx=0.5, y=260, anchor='center')
