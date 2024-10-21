@@ -1,4 +1,4 @@
-name: pack-run_GUI_beta
+name: pack-run_GUI_live
 
 on:
   workflow_dispatch:  # 允许手动触发工作流
@@ -40,7 +40,7 @@ jobs:
 
     - name: 打包项目
       run: |
-        pyinstaller --noconsole -F ${{ env.CODE_DIR }}/run_GUI_beta.py
+        pyinstaller --noconsole -F ${{ env.CODE_DIR }}/run_GUI_live.py
 
     - name: 上传文件
       uses: actions/upload-artifact@v4
