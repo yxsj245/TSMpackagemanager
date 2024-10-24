@@ -16,6 +16,9 @@
 ### 附加解决尝试
 安装完整VC并重启电脑[>>点击这里下载完整VC](https://www.123pan.com/s/4bNtVv-WJmKv)
 
+### [>>已通知开发者](https://github.com/lukas0x1/sml-pc/issues/7)
+
+
 # 2.开始游戏后没有窗口显示
 ## 如何解决
 缺少VC运行环境，请使用包管理器中的**安装VC**选项
