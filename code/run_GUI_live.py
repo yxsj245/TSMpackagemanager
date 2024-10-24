@@ -220,14 +220,15 @@ def select_directory(title):
 
 # 下载文件方法
 def start_download_window(url, save_path):
+    print(url)
     # 创建下载窗口
     download_window = tk.Toplevel()
     download_window.title("文件下载")
 
     # 强制聚焦窗口
-    download_window.attributes('-topmost', True)  # 保证窗口在最前方
-    download_window.grab_set()  # 捕获所有用户输入
-    download_window.focus_force()  # 强制将焦点设置到窗口
+    # download_window.attributes('-topmost', True)
+    # download_window.grab_set()
+    # download_window.focus_force()
 
     # 创建进度条和相关标签
     progress_var = tk.DoubleVar()
@@ -245,6 +246,7 @@ def start_download_window(url, save_path):
 
     # 创建队列用于线程间通信
     update_queue = queue.Queue()
+    stop_download = threading.Event()  # 事件标志，用于停止下载
 
     def update_progress():
         while not update_queue.empty():
@@ -254,7 +256,6 @@ def start_download_window(url, save_path):
             percent_var.set(percent)
             download_window.update_idletasks()
 
-    # 下载文件并显示进度
     def download_file_with_progress():
         try:
             # 检查并创建保存文件的目录
@@ -264,41 +265,43 @@ def start_download_window(url, save_path):
 
             # 发送 HTTP GET 请求获取文件信息
             response = requests.get(url, stream=True, allow_redirects=True)
-            response.raise_for_status()  # 检查请求是否成功
+            response.raise_for_status()
 
-            # 获取文件的总大小（字节）
             total_size = int(response.headers.get('content-length', 0))
-
-            # 变量用于更新下载速度
-            start_time = time.time()
             downloaded_size = 0
+            start_time = time.time()
 
             with open(save_path, 'wb') as file:
-                # 分块下载文件
                 for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:  # 确保块非空
+                    if stop_download.is_set():  # 检查是否需要停止下载
+                        return
+                    if chunk:
                         file.write(chunk)
                         downloaded_size += len(chunk)
 
-                        # 更新进度条和下载速度
                         progress = (downloaded_size / total_size) * 100
                         elapsed_time = time.time() - start_time
                         speed = downloaded_size / (1024 * 1024 * elapsed_time) if elapsed_time > 0 else 0
 
-                        # 将更新放入队列
                         update_queue.put((
                             progress,
                             f"下载速度：{speed:.2f} MB/s",
                             f"下载进度：{progress:.2f}% 文件下载信息：({downloaded_size / (1024 * 1024):.2f} MB / {total_size / (1024 * 1024):.2f} MB)"
                         ))
 
-            # 下载成功后，关闭下载窗口
             download_window.destroy()
 
         except requests.exceptions.RequestException as e:
             print(e)
-            messagebox.showerror('致命错误','下载文件时出现错误')
+            messagebox.showerror('致命错误', '下载文件时出现错误')
             sys.exit(1)
+
+    # 窗口关闭时设置停止下载标志
+    def on_closing():
+        stop_download.set()  # 设置停止下载标志
+        download_window.destroy()
+
+    download_window.protocol("WM_DELETE_WINDOW", on_closing)  # 绑定窗口关闭事件
 
     # 创建线程以运行下载
     download_thread = threading.Thread(target=download_file_with_progress)
@@ -642,6 +645,51 @@ def move_files_and_directories(game_path, files_to_delete, directories_to_delete
             pass
             # print(Fore.RED+ f"ERROR:找不到目录： {dir_name}")
 
+#---重载方法---
+# 重载下载源
+def downreload():
+    global down_1
+    global down_2
+    global down_3
+    global down_4
+    global down_5
+    jsondata = load_config()
+    downdata = load_downconfig()
+    if jsondata['Downloadsource'] == 'gitee':
+        # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用分流模式,TSM组件会受到作者上传速度影响,如需下载最新版可以使用序号4功能')
+        down_1 = downdata['downloadurl']['gitee'][0]
+        down_2 = downdata['downloadurl']['gitee'][1]
+        down_3 = downdata['downloadurl']['gitee'][2]
+        down_4 = downdata['downloadurl']['gitee'][3]
+        down_5 = downdata['downloadurl']['gitee'][4]
+    elif jsondata['Downloadsource'] == 'cloudflare':
+        # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用分流模式,TSM组件会受到作者上传速度影响,如需下载最新版可以使用序号4功能')
+        down_1 = downdata['downloadurl']['cloudflare'][0]
+        down_2 = downdata['downloadurl']['cloudflare'][1]
+        down_3 = downdata['downloadurl']['cloudflare'][2]
+        down_4 = downdata['downloadurl']['cloudflare'][3]
+        down_5 = downdata['downloadurl']['cloudflare'][4]
+    elif jsondata['Downloadsource'] == 'Mirrorghproxy':
+        # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用github,一键功能下载到的TSM组件为最新版')
+        down_1 = downdata['downloadurl']['Mirrorghproxy'][0]
+        down_2 = downdata['downloadurl']['Mirrorghproxy'][1]
+        down_3 = downdata['downloadurl']['Mirrorghproxy'][2]
+        down_4 = downdata['downloadurl']['Mirrorghproxy'][3]
+        down_5 = downdata['downloadurl']['Mirrorghproxy'][4]
+    elif jsondata['Downloadsource'] == 'github':
+        # print(Style.BRIGHT + Fore.CYAN + 'INFO:温馨提示：当前下载线路采用github,一键功能下载到的TSM组件为最新版')
+        down_1 = downdata['downloadurl']['github'][0]
+        down_2 = downdata['downloadurl']['github'][1]
+        down_3 = downdata['downloadurl']['github'][2]
+        down_4 = downdata['downloadurl']['github'][3]
+        down_5 = downdata['downloadurl']['github'][4]
+    else:
+        down_1 = downdata['downloadurl']['other'][0]
+        down_2 = downdata['downloadurl']['other'][1]
+        down_3 = downdata['downloadurl']['other'][2]
+        down_4 = downdata['downloadurl']['other'][3]
+        down_5 = downdata['downloadurl']['other'][4]
+
 # ——————运行方法库——————
 # 环境初始化
 def initialization():
@@ -877,113 +925,129 @@ def Troubleshooting():
 
 #一键安装TSM
 def OneclickinstallationTSM():
-    installOne.config(state=tk.DISABLED,text='正在下载')
+    stop_event = threading.Event()
     def main():
-        # 初始化变量
-        jsondata = load_config()
-        downdata = load_downconfig()
-        filepath = jsondata['data_path']
-        game_path = jsondata['game_path']
-        regionoption = jsondata['region']
-        base_path = filepath
-        url = downdata['check'][0]
-        # print(Fore.BLUE + "INFO:开始下载文件")
+        stop_event.clear()
+        while not stop_event.is_set():
+            # 初始化变量
+            jsondata = load_config()
+            downdata = load_downconfig()
+            filepath = jsondata['data_path']
+            game_path = jsondata['game_path']
+            regionoption = jsondata['region']
+            base_path = filepath
+            url = downdata['check'][0]
+            # print(Fore.BLUE + "INFO:开始下载文件")
 
-        # ————调试注释————
-        # 下载TSM.zip
-        fileurl = down_1
-        print(down_1)
-        save_path = os.path.join(filepath, "TSM.zip")
-        start_download_window(fileurl,save_path)
-
-        # 下载sml-pc.zip
-        fileurl = down_2
-        save_path = os.path.join(filepath, "sml-pc.zip")
-        start_download_window(fileurl,save_path)
-
-        # 下载TSM_font.zip
-        if regionoption == '简体中文':
-            fileurl = down_3
-            save_path = os.path.join(filepath, "TSM_font.zip")
-            start_download_window(fileurl,save_path)
-        else:
-            fileurl = downdata['downloadurl']['cloudflare'][5]
-            save_path = os.path.join(filepath, "TSM_font.zip")
+            # ————调试注释————
+            # 下载TSM.zip
+            fileurl = down_1
+            save_path = os.path.join(filepath, "TSM.zip")
             start_download_window(fileurl,save_path)
 
-        # 下载TSMmap-ZH_CN.zip
-        fileurl = down_4
-        save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
-        start_download_window(fileurl,save_path)
-        # ————调试注释————
-        #————调试注释————
-        if regionoption == '简体中文':
-            installOne.config(state=tk.DISABLED, text='正在校验文件')
-            json_data = fetch_json_from_url(url)
-            # 如果成功获取到JSON数据，则进行文件校验
-            if json_data:
-                for item in json_data:
-                    filename = item.get("filename")
-                    expected_md5 = item.get("md5")
+            # 下载sml-pc.zip
+            if stop_event.is_set(): return
+            fileurl = down_2
+            save_path = os.path.join(filepath, "sml-pc.zip")
+            start_download_window(fileurl,save_path)
 
-                    if filename and expected_md5:
-                        file_path = os.path.join(base_path, filename)  # 拼接基础路径和文件名
-                        if verify_md5(file_path, expected_md5):
-                            None
+            # 下载TSM_font.zip
+            if stop_event.is_set(): return
+            if regionoption == '简体中文':
+                fileurl = down_3
+                save_path = os.path.join(filepath, "TSM_font.zip")
+                start_download_window(fileurl,save_path)
+            else:
+                fileurl = downdata['downloadurl']['cloudflare'][5]
+                save_path = os.path.join(filepath, "TSM_font.zip")
+                start_download_window(fileurl,save_path)
+
+            # 下载TSMmap-ZH_CN.zip
+            if stop_event.is_set(): return
+            fileurl = down_4
+            save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
+            start_download_window(fileurl,save_path)
+            # ————调试注释————
+            #————调试注释————
+            if stop_event.is_set(): return
+            if regionoption == '简体中文':
+                installOne.config(state=tk.DISABLED, text='正在校验文件')
+                json_data = fetch_json_from_url(url)
+                # 如果成功获取到JSON数据，则进行文件校验
+                if json_data:
+                    for item in json_data:
+                        filename = item.get("filename")
+                        expected_md5 = item.get("md5")
+
+                        if filename and expected_md5:
+                            file_path = os.path.join(base_path, filename)  # 拼接基础路径和文件名
+                            if verify_md5(file_path, expected_md5):
+                                None
+                            else:
+                                sys.exit(1)  # 如果MD5不匹配，终止程序
                         else:
-                            sys.exit(1)  # 如果MD5不匹配，终止程序
+                            pass
+                            # print(Fore.RED+"ERROR:JSON数据中缺少文件名或MD5值，跳过该项。")
+            # ————调试注释————
+
+            # print(Fore.BLUE + "INFO:文件信息校验完毕。")
+
+            # ————调试注释————
+            # print(Fore.BLUE + "INFO:开始解压文件")
+            installOne.config(state=tk.DISABLED, text='正在解压')
+            # 解压sml-pc.zip
+            file_name = 'sml-pc.zip'  # 替换为你的文件名
+            full_path = create_full_path(base_path, file_name)
+            unzip_file(create_full_path(base_path, file_name),game_path)
+            # 解压TSM.zip
+            file_name = 'TSM.zip'  # 替换为你的文件名
+            full_path = create_full_path(base_path, file_name)
+            game_path_mod = game_path +'/mods'
+            unzip_file(create_full_path(base_path, file_name),game_path_mod)
+            # 解压TSM_font.zip
+            file_name = 'TSM_font.zip'  # 替换为你的文件名
+            full_path = create_full_path(base_path, file_name)
+            unzip_file(create_full_path(base_path, file_name),game_path)
+            # 解压TSMmap-ZH_CN.zip
+            file_name = 'TSMmap-ZH_CN.zip'  # 替换为你的文件名
+            full_path = create_full_path(base_path, file_name)
+            unzip_file(create_full_path(base_path, file_name),game_path)
+            xuanze = messagebox.askokcancel('安装完毕','是否启动游戏？')
+            if xuanze:
+                # print(Fore.BLUE + "INFO:调用steam启动游戏中...")
+                installOne.config(state=tk.DISABLED, text='正在监控游戏')
+                os.startfile(f"steam://rungameid/{app_id}")
+                # print(Fore.BLUE + "INFO:开始监控游戏进程")
+                result = monitor_process()
+                if result:
+                    xuanze = messagebox.askquestion('警告', '检测到游戏进程在启动后结束,是否运行故障排除向导？')
+                    if xuanze == 'yes':
+                        stop_event.set()
+                        installOne.config(state=tk.NORMAL, text='一键安装', command=OneclickinstallationTSM)
+                        Troubleshooting()
                     else:
-                        pass
-                        # print(Fore.RED+"ERROR:JSON数据中缺少文件名或MD5值，跳过该项。")
-        # ————调试注释————
-
-        # print(Fore.BLUE + "INFO:文件信息校验完毕。")
-
-        # ————调试注释————
-        # print(Fore.BLUE + "INFO:开始解压文件")
-        installOne.config(state=tk.DISABLED, text='正在解压')
-        # 解压sml-pc.zip
-        file_name = 'sml-pc.zip'  # 替换为你的文件名
-        full_path = create_full_path(base_path, file_name)
-        unzip_file(create_full_path(base_path, file_name),game_path)
-        # 解压TSM.zip
-        file_name = 'TSM.zip'  # 替换为你的文件名
-        full_path = create_full_path(base_path, file_name)
-        game_path_mod = game_path +'/mods'
-        unzip_file(create_full_path(base_path, file_name),game_path_mod)
-        # 解压TSM_font.zip
-        file_name = 'TSM_font.zip'  # 替换为你的文件名
-        full_path = create_full_path(base_path, file_name)
-        unzip_file(create_full_path(base_path, file_name),game_path)
-        # 解压TSMmap-ZH_CN.zip
-        file_name = 'TSMmap-ZH_CN.zip'  # 替换为你的文件名
-        full_path = create_full_path(base_path, file_name)
-        unzip_file(create_full_path(base_path, file_name),game_path)
-        xuanze = messagebox.askokcancel('安装完毕','是否启动游戏？')
-        if xuanze:
-            # print(Fore.BLUE + "INFO:调用steam启动游戏中...")
-            installOne.config(state=tk.DISABLED, text='正在监控游戏')
-            os.startfile(f"steam://rungameid/{app_id}")
-            # print(Fore.BLUE + "INFO:开始监控游戏进程")
-            result = monitor_process()
-            if result:
-                xuanze = messagebox.askquestion('警告', '检测到游戏进程在启动后结束,是否运行故障排除向导？')
-                if xuanze == 'yes':
-                    installOne.config(state=tk.NORMAL, text='一键安装')
-                    Troubleshooting()
+                        stop_event.set()
+                        installOne.config(state=tk.NORMAL, text='一键安装', command=OneclickinstallationTSM)
+                        mainmenu.attributes('-alpha', 1)
+                        mainmenu.focus_force()  # 强制聚焦
                 else:
-                    installOne.config(state=tk.NORMAL, text='一键安装')
+                    stop_event.set()
+                    # print(Fore.BLUE + "游戏启动成功")
+                    installOne.config(state=tk.NORMAL, text='一键安装', command=OneclickinstallationTSM)
                     mainmenu.attributes('-alpha', 1)
                     mainmenu.focus_force()  # 强制聚焦
             else:
-                # print(Fore.BLUE + "游戏启动成功")
-                installOne.config(state=tk.NORMAL, text='一键安装')
+                stop_event.set()
+                installOne.config(state=tk.NORMAL, text='一键安装', command=OneclickinstallationTSM)
                 mainmenu.attributes('-alpha', 1)
                 mainmenu.focus_force()  # 强制聚焦
-        else:
-            installOne.config(state=tk.NORMAL, text='一键安装')
-            mainmenu.attributes('-alpha', 1)
-            mainmenu.focus_force()  # 强制聚焦
+
+    # 停止线程
+    def stop():
+        stop_event.set()
+        installOne.config(state=tk.NORMAL, text='一键安装', command=OneclickinstallationTSM)
+
+    installOne.config(text='停止安装任务',command=stop)
 
     thread1 = threading.Thread(target=main)
     thread1.start()
@@ -1042,6 +1106,9 @@ def Localfileinstallation():
     thread1.start()
 # 更新TSM
 def UpdateTSM():
+    stop_event = threading.Event()
+    stop_even2 = threading.Event()
+
     mainmenu.attributes('-alpha',0.5)
     mainmenu.attributes('-topmost', False)
     # 初始化变量
@@ -1049,6 +1116,7 @@ def UpdateTSM():
     filepath = filepath = jsondata['data_path']
     filepath = jsondata['data_path']
     game_path = jsondata['game_path']
+    regionoption = jsondata['region']
     base_path = filepath
     downdata = load_downconfig()
 
@@ -1057,59 +1125,91 @@ def UpdateTSM():
 
     # 更新汉化组件
     def run():
-        linshi1.config(state=tk.DISABLED,text='正在下载')
+        stop_event.clear()
         def main():
-            # 下载TSM_font.zip
-            fileurl = down_3
-            save_path = os.path.join(filepath, "TSM_font.zip")
-            start_download_window(fileurl, save_path)
-            # 下载TSMmap-ZH_CN.zip
-            fileurl = down_4
-            save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
-            start_download_window(fileurl, save_path)
-            linshi1.config(state=tk.DISABLED, text='开始解压文件')
-            # 解压TSM_font.zip
-            file_name = 'TSM_font.zip'  # 替换为你的文件名
-            full_path = create_full_path(base_path, file_name)
-            unzip_file(create_full_path(base_path, file_name), game_path)
-            # 解压TSMmap-ZH_CN.zip
-            file_name = 'TSMmap-ZH_CN.zip'  # 替换为你的文件名
-            full_path = create_full_path(base_path, file_name)
-            unzip_file(create_full_path(base_path, file_name), game_path)
-            linshi1.config(state=tk.NORMAL, text='更新汉化组件')
-            messagebox.showinfo('成功','安装成功')
-            UpdateTSM.attributes('-alpha', 1)
-            UpdateTSM.focus_force()  # 强制聚焦
+            while not stop_event.is_set():
+                # 下载TSM_font.zip
+                if regionoption == '简体中文':
+                    fileurl = down_3
+                    save_path = os.path.join(filepath, "TSM_font.zip")
+                    start_download_window(fileurl, save_path)
+                else:
+                    fileurl = downdata['downloadurl']['cloudflare'][5]
+                    save_path = os.path.join(filepath, "TSM_font.zip")
+                    start_download_window(fileurl, save_path)
+                # 下载TSMmap-ZH_CN.zip
+                if stop_event.is_set(): return
+                fileurl = down_4
+                save_path = os.path.join(filepath, "TSMmap-ZH_CN.zip")
+                start_download_window(fileurl, save_path)
+                # 解压TSM_font.zip
+                if stop_event.is_set(): return
+                linshi1.config(state=tk.DISABLED, text='正在解压文件')
+                file_name = 'TSM_font.zip'  # 替换为你的文件名
+                full_path = create_full_path(base_path, file_name)
+                unzip_file(create_full_path(base_path, file_name), game_path)
+                # 解压TSMmap-ZH_CN.zip
+                file_name = 'TSMmap-ZH_CN.zip'  # 替换为你的文件名
+                full_path = create_full_path(base_path, file_name)
+                unzip_file(create_full_path(base_path, file_name), game_path)
+                linshi1.config(state=tk.NORMAL, text='更新汉化组件', command=run)
+                stop_event.set()
+                messagebox.showinfo('成功','安装成功')
+                linshi2.config(state=tk.NORMAL)
+                UpdateTSM.attributes('-alpha', 1)
+                UpdateTSM.focus_force()  # 强制聚焦
 
+        # 停止线程
+        def stop():
+            stop_event.set()
+            linshi1.config(state=tk.NORMAL, text='更新汉化组件', command=run)
+            linshi2.config(state=tk.NORMAL)
+
+        linshi1.config(text='停止任务',command=stop)
+        linshi2.config(state=tk.DISABLED)
         thread1 = threading.Thread(target=main)
         thread1.start()
 
     # 更新TSM组件
     def run2():
-        linshi2.config(state=tk.DISABLED, text='正在下载')
+        stop_even2.clear()
         def main():
-            # 下载TSM.zip
-            fileurl = downdata['downloadurl']['Mirrorghproxy'][0]
-            save_path = os.path.join(filepath, "TSM.zip")
-            start_download_window(fileurl, save_path)
-            # 下载sml-pc.zip
-            fileurl = downdata['downloadurl']['Mirrorghproxy'][1]
-            save_path = os.path.join(filepath, "sml-pc.zip")
-            start_download_window(fileurl, save_path)
-            linshi2.config(state=tk.DISABLED, text='正在解压')
-            # 解压sml-pc.zip
-            file_name = 'sml-pc.zip'  # 替换为你的文件名
-            full_path = create_full_path(base_path, file_name)
-            unzip_file(create_full_path(base_path, file_name), game_path)
-            # 解压TSM.zip
-            file_name = 'TSM.zip'  # 替换为你的文件名
-            full_path = create_full_path(base_path, file_name)
-            game_path_mod = game_path + '/mods'
-            unzip_file(create_full_path(base_path, file_name), game_path_mod)
-            linshi2.config(state=tk.NORMAL, text='更新TSM组件')
-            messagebox.showinfo('成功', '安装成功:默认没有中文，如有需要请重新运行脚本选择下载汉化。')
-            UpdateTSM.attributes('-alpha', 1)
-            UpdateTSM.focus_force()  # 强制聚焦
+            while not stop_even2.is_set():
+                # 下载TSM.zip
+                fileurl = downdata['downloadurl']['Mirrorghproxy'][0]
+                save_path = os.path.join(filepath, "TSM.zip")
+                start_download_window(fileurl, save_path)
+                # 下载sml-pc.zip
+                if stop_even2.is_set(): return
+                fileurl = downdata['downloadurl']['Mirrorghproxy'][1]
+                save_path = os.path.join(filepath, "sml-pc.zip")
+                start_download_window(fileurl, save_path)
+                # 解压sml-pc.zip
+                if stop_even2.is_set(): return
+                linshi2.config(state=tk.DISABLED, text='正在解压')
+                file_name = 'sml-pc.zip'  # 替换为你的文件名
+                full_path = create_full_path(base_path, file_name)
+                unzip_file(create_full_path(base_path, file_name), game_path)
+                # 解压TSM.zip
+                file_name = 'TSM.zip'  # 替换为你的文件名
+                full_path = create_full_path(base_path, file_name)
+                game_path_mod = game_path + '/mods'
+                unzip_file(create_full_path(base_path, file_name), game_path_mod)
+                linshi2.config(state=tk.NORMAL, text='更新TSM组件', command=run2)
+                stop_even2.set()
+                linshi1.config(state=tk.NORMAL)
+                messagebox.showinfo('成功', '安装成功:默认没有中文，如有需要请重新运行脚本选择下载汉化。')
+                UpdateTSM.attributes('-alpha', 1)
+                UpdateTSM.focus_force()  # 强制聚焦
+
+        # 停止线程
+        def stop():
+            stop_even2.set()
+            linshi2.config(state=tk.NORMAL, text='更新TSM组件', command=run2)
+            linshi1.config(state=tk.NORMAL)
+
+        linshi2.config(text='停止任务',command=stop)
+        linshi1.config(state=tk.DISABLED)
         thread1 = threading.Thread(target=main)
         thread1.start()
 
@@ -1268,32 +1368,48 @@ def setup():
     # 重新检测下载线路
     def run2():
         linshi2.config(state=tk.DISABLED,text='正在进行中...')
+        linshi3.config(state=tk.DISABLED)
+
+        def on_closing():
+            # 自定义处理逻辑，可以弹出提示信息，或者直接不做任何操作
+            messagebox.showwarning("警告", "当前仍然有进行中的任务,为防止程序出错,请等待执行完毕后再关闭")
+            option.attributes('-alpha', 1)
+            option.focus_force()  # 强制聚焦
         # 进入第二线程进行下载防止主窗口Windows系统认为无响应
         def main():
+            option.protocol("WM_DELETE_WINDOW", on_closing)
             fastest = download_files(urls)
             if fastest:
                 if fastest == 'https://mirror.ghproxy.com/https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
                     messagebox.showinfo('成功','当前最优线路：github中国代理,与此同时汉化相关组件采用gitee网络')
                     update_config_value('Downloadsource', 'Mirrorghproxy')
                     linshi2.config(state=tk.NORMAL, text='重新检测下载线路')
+                    linshi3.config(state=tk.NORMAL)
+                    option.protocol("WM_DELETE_WINDOW", WindowEvent)
                     option.attributes('-alpha', 1)
                     option.focus_force()  # 强制聚焦
                 elif fastest == 'https://github.com/yxsj245/Filespeedmeasurement/releases/download/main/test.txt':
                     messagebox.showinfo('成功','当前最优线路：github,与此同时汉化相关组件采用gitee网络')
                     update_config_value('Downloadsource', 'github')
                     linshi2.config(state=tk.NORMAL, text='重新检测下载线路')
+                    linshi3.config(state=tk.NORMAL)
+                    option.protocol("WM_DELETE_WINDOW", WindowEvent)
                     option.attributes('-alpha', 1)
                     option.focus_force()  # 强制聚焦
                 elif fastest == 'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/%E6%B5%8B%E9%80%9F%E6%96%87%E4%BB%B6/test.txt':
                     messagebox.showinfo('成功','当前最优线路：cloudflare')
                     update_config_value('Downloadsource', 'cloudflare')
                     linshi2.config(state=tk.NORMAL, text='重新检测下载线路')
+                    linshi3.config(state=tk.NORMAL)
+                    option.protocol("WM_DELETE_WINDOW", WindowEvent)
                     option.attributes('-alpha', 1)
                     option.focus_force()  # 强制聚焦
                 elif fastest == 'https://gitee.com/xiao-zhu245/filespeedmeasurement/releases/download/main/test.txt':
                     messagebox.showinfo('成功','当前最优线路：gitee')
                     update_config_value('Downloadsource', 'gitee')
                     linshi2.config(state=tk.NORMAL, text='重新检测下载线路')
+                    linshi3.config(state=tk.NORMAL)
+                    option.protocol("WM_DELETE_WINDOW", WindowEvent)
                     option.attributes('-alpha', 1)
                     option.focus_force()  # 强制聚焦
 
@@ -1337,8 +1453,13 @@ def setup():
     def Apply():
         update_config_value('Downloadsource', Proxy_value.get())
         update_config_value('region', regionvalue.get())
-        messagebox.showinfo('成功','设置成功,请重启生效.')
-        sys.exit(0)
+        # 重载方法
+        downreload()
+        option.destroy()
+        mainmenu.attributes('-alpha', 1)
+        mainmenu.focus_force()  # 强制聚焦
+        # messagebox.showinfo('成功','设置成功,请重启生效.')
+        # sys.exit(0)
 
     def WindowEvent():
         mainmenu.attributes('-alpha', 1)
@@ -1378,8 +1499,8 @@ def setup():
     region.place(relx=0.3, y=310, anchor='center')
     option.after(1, lambda: region.set(regionoption))
 
-    ttk.Button(option, text='确认', command=Apply, padding=(10, 10),width=50).place(relx=0.5, y=370, anchor='center')
-
+    linshi3 = ttk.Button(option, text='确认', command=Apply, padding=(10, 10),width=50)
+    linshi3.place(relx=0.5, y=370, anchor='center')
 # 安装VC
 def installVC():
     # 初始化变量
@@ -1398,15 +1519,21 @@ def installVC():
 
 # 播放音频
 def startMp3():
-    but1.config(state=tk.DISABLED,text='音乐正在播放..请稍后(您仍然可以使用其它功能)')
+    stop_event = threading.Event()
     Mp3list=['https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/MP3/%E8%83%A1%E5%B0%8F%E9%B8%A5%20-%20%E7%9B%B8%E8%AE%B8.mp3',
              'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/MP3/Vincent%20Diamante%20-%20Finding%20the%20Horizon.mp3',
              'https://pub-46d21cac9c7d44b79d73abfeb727999f.r2.dev/TSM%E5%AE%89%E8%A3%85%E5%99%A8/TSM%E7%BB%84%E4%BB%B6/MP3/Vincent%20Diamante%20-%20Returns.mp3']
     def run():
-        while True:
+        while not stop_event.is_set():
+            if stop_event.is_set(): return
             linshi = random.randint(0, len(Mp3list) - 1)
             music(Mp3list[linshi])
 
+    def stop():
+        stop_event.set()
+        but1.config(text='播放音乐边听边用', command=startMp3)
+
+    but1.config(text='停止下一首的播放',command=stop)
     mp3 = threading.Thread(target=run)
     mp3.daemon = True
     mp3.start()
@@ -1470,7 +1597,7 @@ global stateTSM
 mainmenu = tk.Tk()
 mainmenu.geometry("600x450")  # 设置窗口大小
 mainmenu.minsize(450,382)
-mainmenu.title('TSM包管理器4.2')
+mainmenu.title('TSM包管理器4.4')
 
 # 变量
 stateTSM=tk.StringVar()
