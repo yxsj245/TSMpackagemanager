@@ -3,7 +3,6 @@ import zipfile
 import hashlib
 import sys
 import tkinter as tk
-from time import sleep
 from tkinter import filedialog
 import winreg
 import shutil
@@ -645,6 +644,27 @@ def move_files_and_directories(game_path, files_to_delete, directories_to_delete
             pass
             # print(Fore.RED+ f"ERROR:找不到目录： {dir_name}")
 
+# 列出所有进程
+def check_process_exists(process_name):
+    # 遍历所有进程
+    for proc in psutil.process_iter(['name']):
+        try:
+            # 检查进程名是否匹配
+            if proc.info['name'].lower() == process_name.lower():
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return False
+
+# 获取当前工作目录文件
+def check_file_exists(filename):
+    # 获取当前工作目录
+    current_directory = os.getcwd()
+    # 构造完整路径
+    file_path = os.path.join(current_directory, filename)
+    # 检查文件是否存在
+    return os.path.isfile(file_path)
+
 #---重载方法---
 # 重载下载源
 def downreload():
@@ -763,7 +783,7 @@ def initialization():
             sys.exit(0)
         # 创建子窗口
         initiali = tk.Toplevel()
-        initiali.title('TSM包管理器4.2_环境初始化')
+        initiali.title('TSM包管理器4.5_环境初始化')
 
         # 变量
         current_locale = None #系统区域语言
@@ -784,9 +804,11 @@ def initialization():
         else:
             contents.set(game_path)
 
-        filepath = os.getcwd()
-        filepath = os.path.join(filepath, 'Downloadedfiles')
-        Temporaryfiles.set(filepath)
+        # 获取临时文件夹路径
+        temp_dir = os.environ.get('TEMP') or os.environ.get('TMP')
+        # 拼接TSMdownload文件夹
+        tsm_download_path = os.path.join(temp_dir, "TSMdownload")
+        Temporaryfiles.set(tsm_download_path)
 
 
 
@@ -888,6 +910,14 @@ def initialization():
         initializat()
     else:
         Variable()
+
+# 运行环境检测
+def checkzation():
+    if check_process_exists('Sky.exe'):
+        messagebox.showwarning('警告','检测到游戏正在运行，为保证程序功能运行正常，请您关闭游戏后操作。')
+    if check_file_exists('Sky.exe'):
+        messagebox.showwarning('警告', '检测到您将程序放置在游戏目录，这将会导致SML启动，为保证程序功能运行正常，请您放置在除游戏根目录外的其它任意目录')
+        sys.exit(0)
 
 # 故障排除
 def Troubleshooting():
@@ -1602,6 +1632,9 @@ mainmenu.title('TSM包管理器4.4')
 # 变量
 stateTSM=tk.StringVar()
 
+
+# 检测运行环境
+checkzation()
 # 运行初始化方法
 initialization()
 
