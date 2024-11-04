@@ -783,7 +783,7 @@ def initialization():
             sys.exit(0)
         # 创建子窗口
         initiali = tk.Toplevel()
-        initiali.title('TSM包管理器4.5_环境初始化')
+        initiali.title('TSM包管理器_环境初始化')
 
         # 变量
         current_locale = None #系统区域语言
@@ -1627,7 +1627,7 @@ global stateTSM
 mainmenu = tk.Tk()
 mainmenu.geometry("600x450")  # 设置窗口大小
 mainmenu.minsize(450,382)
-mainmenu.title('TSM包管理器4.4')
+mainmenu.title('TSM包管理器4.6')
 
 # 变量
 stateTSM=tk.StringVar()
